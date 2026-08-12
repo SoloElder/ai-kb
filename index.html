@@ -163,15 +163,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
     <div class="sidebar" id="sidebar">
       <div class="sidebar-section" id="adminSection" style="display:none">
         <h4>用户管理 <span class="count" id="userCount"></span></h4>
-        <div class="sidebar-actions"><button class="btn-pill primary" onclick="openCreateUserModal()">+ 创建账号</button></div>
-        <div class="sidebar-list" id="adminUserList"></div>
+        <div class="sidebar-actions"><button class="btn-pill primary" onclick="openUserManageModal()">管理用户</button></div>
       </div>
       <div class="sidebar-section">
         <h4>知识库 <span class="count" id="kbCount">0 条</span></h4>
         <div class="sidebar-actions">
           <button class="btn-pill primary" onclick="openAddModal()">+ 添加条目</button>
-          <button class="btn-pill" onclick="exportCSV()">导出 CSV</button>
+          <button class="btn-pill" onclick="exportCSV()">导出</button>
           <button class="btn-pill" onclick="importCSV()">导入</button>
+          <button class="btn-pill" onclick="clearAllKB()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">清空</button>
         </div>
         <div class="sidebar-search"><input type="text" id="kbSearch" placeholder="搜索知识条目..." oninput="refreshKBSidebar()"></div>
         <div class="sidebar-list" id="kbSidebarList"></div>
@@ -243,6 +243,28 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
 <div class="modal-overlay" id="adminViewOverlay"><div class="modal" style="width:600px;">
   <h3><span id="adminViewTitle">用户资料</span></h3><div id="adminViewContent"></div>
   <div class="modal-actions"><button class="primary" onclick="closeAdminView()">关闭</button></div>
+</div></div>
+
+<div class="modal-overlay" id="userManageOverlay"><div class="modal" style="width:700px;">
+  <h3>用户管理 <button class="btn-pill primary" onclick="openCreateUserModal()" style="margin-left:12px;">+ 创建账号</button></h3>
+  <div style="max-height:50vh;overflow-y:auto;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">
+        <th style="padding:6px 8px;">用户名</th><th style="padding:6px 8px;">角色</th><th style="padding:6px 8px;">KB</th><th style="padding:6px 8px;">对话</th><th style="padding:6px 8px;">操作</th>
+      </tr></thead>
+      <tbody id="userManageTable"></tbody>
+    </table>
+  </div>
+  <div class="modal-actions"><button class="primary" onclick="closeUserManage()">关闭</button></div>
+</div></div>
+
+<div class="modal-overlay" id="authOverlay"><div class="modal" style="width:550px;">
+  <h3>知识库授权 - <span id="authTargetName" style="color:var(--accent);"></span></h3>
+  <div style="margin-bottom:10px;font-size:12px;color:var(--muted);">
+    勾选用户可查看 <span id="authTargetName2" style="color:var(--accent);"></span> 的知识库
+  </div>
+  <div style="max-height:40vh;overflow-y:auto;" id="authUserList"></div>
+  <div class="modal-actions"><button onclick="closeAuthModal()">取消</button><button class="primary" onclick="saveAuth()">保存授权</button></div>
 </div></div>
 
 <script>
@@ -346,25 +368,10 @@ window.refreshKBSidebar = function() {
 };
 
 function loadAdminPanel() {
-  api('GET', '/rest/v1/profiles?select=*').then(function(r) {
-    var users = (r.ok && r.data) ? r.data : [];
-    document.getElementById('userCount').textContent = users.length + ' 人';
-    Promise.all(users.map(function(u) {
-      return Promise.all([
-        api('GET', '/rest/v1/knowledge_base?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.kbCount=(rr.data||[]).length;}),
-        api('GET', '/rest/v1/chat_history?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.chatCount=(rr.data||[]).length;})
-      ]);
-    })).then(function() {
-      document.getElementById('adminUserList').innerHTML = users.map(function(u) {
-        var btns = '<button class="btn-pill" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
-        if (u.username !== 'root') {
-          btns += '<button class="btn-pill" onclick="toggleAdmin(\''+esc(u.username)+'\')">'+(u.role==='admin'?'取消管理':'设为管理')+'</button>';
-          btns += '<button class="btn-pill" onclick="openGrantModal(\''+esc(u.username)+'\')">授权</button>';
-          btns += '<button class="btn-pill" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(u.username)+'\')" style="color:var(--red);">删除</button>';
-        }
-        return '<div class="user-row"><div><div class="uname">'+esc(u.username)+(u.role==='admin'?' <span style="color:var(--amber);">admin</span>':'')+'</div><div class="uinfo">KB '+u.kbCount+' · Chat '+u.chatCount+'</div></div><div class="uacts">'+btns+'</div></div>';
-      }).join('');
-    });
+  var count = 0;
+  api('GET', '/rest/v1/profiles?select=id').then(function(r) {
+    count = (r.data||[]).length;
+    document.getElementById('userCount').textContent = count + ' 人';
   });
 }
 
@@ -387,21 +394,83 @@ window.adminViewKB = function(uid, uname) {
 };
 
 window.closeAdminView = function() { document.getElementById('adminViewOverlay').classList.remove('show'); };
-window.toggleAdmin = function(uname) {
-  api('POST', '/rest/v1/rpc/toggle_admin_role', { target_username: uname }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('失败'); return; }
-    loadAdminPanel(); toast(uname + ' -> ' + (r.data.new_role==='admin'?'管理员':'用户'));
+// ====== User manage modal ======
+window.openUserManageModal = function() {
+  api('GET', '/rest/v1/profiles?select=*').then(function(r) {
+    var users = (r.ok && r.data) ? r.data : [];
+    Promise.all(users.map(function(u) {
+      return Promise.all([
+        api('GET', '/rest/v1/knowledge_base?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.kbCount=(rr.data||[]).length;}),
+        api('GET', '/rest/v1/chat_history?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.chatCount=(rr.data||[]).length;})
+      ]);
+    })).then(function() {
+      document.getElementById('userManageTable').innerHTML = users.map(function(u) {
+        var btns = '';
+        if (u.username !== 'root') {
+          btns += '<button class="btn-pill" onclick="toggleAdmin(\''+esc(u.username)+'\')">'+(u.role==='admin'?'取消管理':'设为管理')+'</button> ';
+          btns += '<button class="btn-pill" onclick="openAuthModal(\''+esc(u.username)+'\')">授权</button> ';
+          btns += '<button class="btn-pill" style="color:var(--red);" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(u.username)+'\')">删除</button>';
+        }
+        btns += ' <button class="btn-pill" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
+        return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;">'+esc(u.username)+'</td><td style="padding:6px 8px;"><span class="role-badge '+(u.role==='admin'?'admin':'user')+'">'+u.role+'</span></td><td style="padding:6px 8px;">'+(u.kbCount||0)+'</td><td style="padding:6px 8px;">'+(u.chatCount||0)+'</td><td style="padding:6px 8px;">'+btns+'</td></tr>';
+      }).join('');
+      document.getElementById('userManageOverlay').classList.add('show');
+    });
   });
 };
-window.openGrantModal = function(uname) {
-  api('GET', '/rest/v1/profiles?select=username').then(function(ur) {
-    var users = (ur.data||[]).map(function(p){return p.username;}).filter(function(n){return n!==uname;});
-    var u2 = prompt('授权/取消 ['+uname+'] 的知识库给谁看:\n'+users.join(', '), '');
-    if (!u2||!u2.trim()) return;
-    api('POST', '/rest/v1/rpc/grant_kb_access', { owner_username: uname, viewer_username: u2.trim() }).then(function(rr) {
-      if (!rr.ok || (rr.data||{}).error) { toast('失败'); return; }
-      toast(rr.data.action==='granted' ? u2.trim()+' 可查看 '+uname+' 的知识库' : '已取消');
+window.closeUserManage = function() { document.getElementById('userManageOverlay').classList.remove('show'); };
+
+// ====== Auth modal ======
+window.openAuthModal = function(uname) {
+  document.getElementById('authTargetName').textContent = uname;
+  document.getElementById('authTargetName2').textContent = uname;
+  api('GET', '/rest/v1/profiles?select=*').then(function(r) {
+    var users = (r.data||[]).filter(function(u){return u.username!==uname;});
+    // 查询现有权限
+    api('GET', '/rest/v1/kb_permissions?select=viewer_id&owner_id=eq.'+encodeURIComponent(users[0]?users[0].id:'')).then(function() {});
+    // 更好的方式：获取所有profiles + 用函数查权限
+    api('POST', '/rest/v1/rpc/get_user_permissions', { target_username: uname }).then(function(pr) {
+      var perms = pr.data || [];
+      var viewerNames = [];
+      perms.forEach(function(p) { viewerNames.push(p.viewer_username); });
+      document.getElementById('authUserList').innerHTML = users.map(function(u) {
+        var checked = viewerNames.indexOf(u.username) !== -1;
+        return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:var(--surface);">'+
+          '<input type="checkbox" data-username="'+esc(u.username)+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);">'+
+          '<span>'+esc(u.username)+' <span style="color:var(--muted);font-size:11px;">('+u.role+')</span></span></label>';
+      }).join('');
+      window._authOwner = uname;
+      document.getElementById('authOverlay').classList.add('show');
     });
+  });
+};
+window.closeAuthModal = function() { document.getElementById('authOverlay').classList.remove('show'); };
+window.saveAuth = function() {
+  var owner = window._authOwner;
+  var checks = document.querySelectorAll('#authUserList input[type=checkbox]');
+  var promises = [];
+  checks.forEach(function(cb) {
+    promises.push(api('POST', '/rest/v1/rpc/grant_kb_access', { owner_username: owner, viewer_username: cb.dataset.username }));
+  });
+  Promise.all(promises).then(function() {
+    closeAuthModal(); toast('授权已更新');
+  });
+};
+
+// ====== Clear KB ======
+window.clearAllKB = function() {
+  if (!confirm('确定清空所有知识库条目？此操作不可恢复！')) return;
+  var uid = session.user.id;
+  api('DELETE', '/rest/v1/knowledge_base?user_id=eq.'+encodeURIComponent(uid)).then(function() {
+    loadKB(); toast('知识库已清空');
+  });
+};
+
+window.toggleAdmin = function(uname) {
+  api('POST', '/rest/v1/rpc/toggle_admin_role', { target_username: uname }).then(function(r) {
+    if (!r.ok || (r.data||{}).error) { toast('操作失败: '+((r.data||{}).error||'')); return; }
+    toast(uname + ' -> ' + (r.data.new_role==='admin'?'管理员':'用户'));
+    if (document.getElementById('userManageOverlay').classList.contains('show')) openUserManageModal();
   });
 };
 window.adminDeleteUser = function(uid, uname) {
@@ -516,6 +585,8 @@ document.getElementById('configOverlay').addEventListener('click',function(e){if
 document.getElementById('createUserOverlay').addEventListener('click',function(e){if(e.target===this)closeCreateUserModal();});
 document.getElementById('pwdOverlay').addEventListener('click',function(e){if(e.target===this)closePwdModal();});
 document.getElementById('adminViewOverlay').addEventListener('click',function(e){if(e.target===this)closeAdminView();});
+document.getElementById('userManageOverlay').addEventListener('click',function(e){if(e.target===this)closeUserManage();});
+document.getElementById('authOverlay').addEventListener('click',function(e){if(e.target===this)closeAuthModal();});
 document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')handleLogin();});
 </script>
 </body>
