@@ -292,9 +292,12 @@ window.handleLogin = function() {
       document.getElementById('loginErr').style.display = 'block'; return;
     }
     session = r.data;
-    console.log('Token:', session.access_token ? session.access_token.substring(0,30)+'...' : 'MISSING');
+    document.getElementById('loginErr').textContent = 'Token: ' + (session.access_token ? session.access_token.substring(0,40)+'...' : '无') + ' | API状态:';
+    document.getElementById('loginErr').style.display = 'block';
+    document.getElementById('loginErr').style.color = '#10b981';
     currentUser = r.data.user.user_metadata.username || u;
     api('GET', '/rest/v1/profiles?select=role&id=eq.' + encodeURIComponent(r.data.user.id)).then(function(pr) {
+      document.getElementById('loginErr').textContent += ' Profiles:' + (pr.ok ? 'OK' : pr.status+' '+JSON.stringify(pr.data||pr.error));
       if (pr.ok && pr.data && pr.data.length > 0) currentRole = pr.data[0].role;
       showMain();
     });
@@ -502,7 +505,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#apiStatus')
 window.openAddModal=function(){document.getElementById('modalTitle').textContent='添加知识条目';document.getElementById('modalEditId').value='';document.getElementById('modalCategory').value='';document.getElementById('modalTitleInput').value='';document.getElementById('modalContent').value='';document.getElementById('modalDeleteBtn').style.display='none';document.getElementById('modalOverlay').classList.add('show');};
 window.openEditModal=function(id){var e=kbCache.find(function(x){return x.id===id;});if(!e)return;document.getElementById('modalTitle').textContent='编辑知识条目';document.getElementById('modalEditId').value=e.id;document.getElementById('modalCategory').value=e.category||'';document.getElementById('modalTitleInput').value=e.title||'';document.getElementById('modalContent').value=e.content||'';document.getElementById('modalDeleteBtn').style.display='inline-block';document.getElementById('modalOverlay').classList.add('show');};
 window.closeModal=function(){document.getElementById('modalOverlay').classList.remove('show');};
-window.saveEntry=function(){var id=document.getElementById('modalEditId').value;var d={category:document.getElementById('modalCategory').value.trim(),title:document.getElementById('modalTitleInput').value.trim(),content:document.getElementById('modalContent').value.trim(),user_id:session.user.id,updated_at:new Date().toISOString()};if(!d.title){toast('请输入标题');return;}if(id){api('PATCH','/rest/v1/knowledge_base?id=eq.'+encodeURIComponent(id),d).then(function(){loadKB();closeModal();});}else{d.id='kb_'+Date.now();d.created_at=new Date().toISOString();api('POST','/rest/v1/knowledge_base',d).then(function(){loadKB();closeModal();});}};
+window.saveEntry=function(){var id=document.getElementById('modalEditId').value;var d={category:document.getElementById('modalCategory').value.trim(),title:document.getElementById('modalTitleInput').value.trim(),content:document.getElementById('modalContent').value.trim(),user_id:session.user.id,updated_at:new Date().toISOString()};if(!d.title){toast('请输入标题');return;}    if(id){api('PATCH','/rest/v1/knowledge_base?id=eq.'+encodeURIComponent(id),d).then(function(rr){if(!rr.ok)toast('保存失败: '+rr.status+' '+JSON.stringify(rr.data||rr.error));else{loadKB();closeModal();}});}else{d.id='kb_'+Date.now();d.created_at=new Date().toISOString();api('POST','/rest/v1/knowledge_base',d).then(function(rr){if(!rr.ok)toast('添加失败: '+rr.status+' '+JSON.stringify(rr.data||rr.error));else{loadKB();closeModal();}});}};
 window.deleteEntry=function(){var id=document.getElementById('modalEditId').value;if(!id||!confirm('确定删除？'))return;deleteById(id);closeModal();};
 window.deleteById=function(id){if(!confirm('确定删除？'))return;api('DELETE','/rest/v1/knowledge_base?id=eq.'+encodeURIComponent(id)).then(function(){loadKB();});};
 
