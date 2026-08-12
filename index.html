@@ -3,187 +3,348 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AI知识库</title>
+<title>AI 知识库</title>
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 :root {
-  --bg: #09090b; --surface: #131318; --card: #1a1a24;
-  --border: rgba(255,255,255,0.06); --text: #e4e4e7; --muted: #71717a;
-  --accent: #6366f1; --accent2: #8b5cf6; --green: #10b981; --red: #ef4444; --amber: #f59e0b;
+  --bg: #0a0a0f; --bg2: #111118; --surface: #16161e; --card: #1c1c28;
+  --border: rgba(255,255,255,0.06); --border2: rgba(255,255,255,0.1);
+  --text: #f1f1f3; --text2: #c4c4cc; --muted: #717182;
+  --accent: #6366f1; --accent2: #8b5cf6; --accent-glow: rgba(99,102,241,0.15);
+  --green: #10b981; --green-bg: rgba(16,185,129,0.1);
+  --red: #ef4444; --red-bg: rgba(239,68,68,0.1);
+  --amber: #f59e0b; --amber-bg: rgba(245,158,11,0.1);
+  --radius: 10px; --radius-lg: 14px; --radius-xl: 18px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
 }
 * { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5;
+  -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+}
 
-#loginPage { display: flex; justify-content: center; align-items: center; height: 100vh; background: radial-gradient(ellipse at 30% 20%, rgba(99,102,241,0.12) 0%, transparent 60%), radial-gradient(ellipse at 70% 80%, rgba(139,92,246,0.08) 0%, transparent 60%), var(--bg); }
-.login-wrap { width: 400px; }
-.login-wrap .brand { text-align: center; margin-bottom: 36px; }
-.login-wrap .brand .icon { width: 48px; height: 48px; border-radius: 14px; background: linear-gradient(135deg, var(--accent), var(--accent2)); display: inline-flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 12px; }
-.login-wrap .brand h1 { font-size: 26px; font-weight: 700; }
-.login-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 32px; }
-.login-card .field { margin-bottom: 16px; }
-.login-card label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
-.login-card input { width: 100%; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 14px; outline: none; }
-.login-card input:focus { border-color: var(--accent); }
-.login-card button { width: 100%; padding: 13px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 4px; }
-.login-err { color: var(--red); font-size: 12px; text-align: center; margin-top: 12px; display: none; }
-#mainPage { display: none; height: 100vh; flex-direction: column; }
-#mainPage.show { display: flex; }
-.topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); background: var(--surface); }
-.topbar .logo { display: flex; align-items: center; gap: 10px; }
-.topbar .logo .dot { width: 28px; height: 28px; border-radius: 8px; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
-.topbar .logo span { font-size: 16px; font-weight: 700; }
-.topbar .right { display: flex; align-items: center; gap: 12px; }
-.topbar .right .user { font-size: 13px; color: var(--muted); }
-.role-badge { font-size: 10px; padding: 2px 8px; border-radius: 8px; font-weight: 600; }
-.role-badge.admin { background: rgba(245,158,11,0.15); color: var(--amber); }
-.role-badge.user { background: rgba(99,102,241,0.15); color: var(--accent); }
-.btn-ghost { padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
-.btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); }
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+
+/* ===== Login ===== */
+.login-page {
+  display: flex; align-items: center; justify-content: center; height: 100vh;
+  background: radial-gradient(ellipse at 50% 30%, rgba(99,102,241,0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(139,92,246,0.05) 0%, transparent 50%), var(--bg);
+}
+.login-card {
+  width: 400px; padding: 40px 36px; background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius-xl); box-shadow: var(--shadow);
+}
+.login-card .logo-area { text-align: center; margin-bottom: 32px; }
+.login-card .logo-icon {
+  width: 52px; height: 52px; margin: 0 auto 16px; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center; font-size: 22px; color: #fff;
+}
+.login-card h1 { font-size: 24px; font-weight: 700; letter-spacing: -0.5px; }
+.login-card .sub { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.login-card .field { margin-bottom: 18px; }
+.login-card label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; letter-spacing: 0.3px; }
+.login-card input {
+  width: 100%; padding: 12px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 14px; outline: none; font-family: inherit;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.login-card input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.login-card button {
+  width: 100%; padding: 13px; border-radius: var(--radius); border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+  font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit;
+  transition: all 0.2s; margin-top: 4px;
+}
+.login-card button:hover { opacity: 0.92; transform: translateY(-1px); box-shadow: 0 8px 24px var(--accent-glow); }
+.login-card button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+.login-err { color: var(--red); font-size: 12px; text-align: center; margin-top: 14px; display: none; }
+
+/* ===== App Shell ===== */
+.app { display: none; height: 100vh; flex-direction: column; }
+.app.active { display: flex; }
+
+/* Topbar */
+.topbar {
+  height: 52px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 20px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--bg2);
+  backdrop-filter: blur(12px);
+}
+.topbar .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 15px; }
+.topbar .logo .dot { width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, var(--accent), var(--accent2)); }
+.topbar .right { display: flex; align-items: center; gap: 14px; }
+.topbar .right .uname { font-size: 13px; color: var(--text2); font-weight: 500; }
+.badge { font-size: 11px; padding: 3px 10px; border-radius: 12px; font-weight: 600; }
+.badge.admin { background: var(--amber-bg); color: var(--amber); }
+.badge.user { background: var(--accent-glow); color: var(--accent); }
+.btn-ghost {
+  padding: 6px 14px; border-radius: 7px; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer; font-size: 12px; font-family: inherit; font-weight: 500;
+  transition: all 0.15s;
+}
+.btn-ghost:hover { color: var(--text); border-color: var(--border2); background: rgba(255,255,255,0.03); }
+
+/* Body */
 .app-body { flex: 1; display: flex; overflow: hidden; }
-.sidebar { width: 300px; border-right: 1px solid var(--border); background: var(--surface); display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto; }
-.sidebar.collapsed { width: 0; border-right: none; overflow: hidden; }
-.sidebar-section { padding: 0 16px 12px; border-bottom: 1px solid var(--border); }
-.sidebar-section:last-child { border-bottom: none; }
-.sidebar-section h4 { font-size: 11px; font-weight: 600; color: var(--muted); padding: 14px 0 8px; display: flex; align-items: center; justify-content: space-between; }
-.sidebar-section h4 .count { font-size: 11px; color: var(--accent); }
-.btn-pill { padding: 6px 14px; border-radius: 16px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
-.btn-pill:hover { border-color: rgba(255,255,255,0.2); color: var(--text); }
-.btn-pill.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.sidebar-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
-.sidebar-search { position: relative; margin-top: 6px; }
-.sidebar-search::before { content: '🔍'; position: absolute; left: 10px; top: 7px; font-size: 11px; opacity: 0.5; pointer-events: none; z-index: 1; }
-.sidebar-search input { width: 100%; padding: 7px 10px 7px 28px; background: var(--card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 12px; outline: none; }
-.sidebar-list { padding: 0 4px; max-height: 300px; overflow-y: auto; }
-.sidebar-empty { padding: 20px; text-align: center; color: var(--muted); font-size: 13px; }
-.entry-card { padding: 10px 12px; margin-bottom: 6px; border-radius: 10px; border: 1px solid transparent; cursor: pointer; background: var(--card); position: relative; }
-.entry-card:hover { border-color: rgba(255,255,255,0.1); }
-.entry-card .ec-cat { font-size: 10px; color: var(--accent); margin-bottom: 3px; font-weight: 600; }
-.entry-card .ec-title { font-size: 13px; font-weight: 500; }
-.entry-card .ec-preview { font-size: 11px; color: var(--muted); margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.entry-card .ec-actions { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; opacity: 0; }
-.entry-card:hover .ec-actions { opacity: 1; }
-.ec-action { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; }
-.ec-action.del:hover { color: var(--red); }
-.user-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; margin-bottom: 4px; border-radius: 8px; background: var(--card); font-size: 12px; }
-.user-row .uname { color: var(--text); font-weight: 500; }
-.user-row .uinfo { color: var(--muted); font-size: 10px; }
-.user-row .uacts { display: flex; gap: 4px; }
-.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-.chat-header { display: flex; align-items: center; padding: 0 20px; height: 48px; border-bottom: 1px solid var(--border); gap: 10px; }
-.toggle-sidebar { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; }
-.chat-header .section-title { font-size: 14px; font-weight: 600; }
-.chat-header .header-spacer { flex: 1; }
-.chat-header .model-area { display: flex; align-items: center; gap: 8px; position: relative; }
-.chat-header .model-area label { font-size: 11px; color: var(--muted); }
-.chat-header .model-area select { padding: 5px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--text); font-size: 12px; outline: none; }
-.api-status-badge { font-size: 11px; padding: 3px 10px; border-radius: 10px; cursor: pointer; position: relative; }
-.api-status-badge.set { background: rgba(16,185,129,0.1); color: var(--green); }
-.api-status-badge.unset { background: rgba(239,68,68,0.1); color: var(--red); }
-.api-popover { position: absolute; top: calc(100% + 8px); right: 0; width: 320px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; z-index: 50; display: none; box-shadow: 0 16px 48px rgba(0,0,0,0.5); }
+
+/* Sidebar */
+.sidebar {
+  width: 260px; background: var(--bg2); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; flex-shrink: 0; overflow-y: auto;
+}
+.sidebar-nav { padding: 12px 10px; border-bottom: 1px solid var(--border); }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius);
+  cursor: pointer; font-size: 13px; font-weight: 500; color: var(--muted); transition: all 0.15s;
+  margin-bottom: 2px;
+}
+.nav-item:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+.nav-item.active { background: var(--accent-glow); color: var(--accent); }
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-item .badge-count { margin-left: auto; font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 8px; border-radius: 8px; }
+
+.sidebar-panel { flex: 1; overflow-y: auto; padding: 12px 10px; display: none; }
+.sidebar-panel.active { display: block; }
+
+.panel-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding: 0 4px; }
+.panel-header h4 { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+.panel-actions { display: flex; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.btn-sm {
+  padding: 5px 12px; border-radius: 14px; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); cursor: pointer; font-size: 11px; font-family: inherit; font-weight: 500;
+  transition: all 0.15s; white-space: nowrap;
+}
+.btn-sm:hover { border-color: var(--border2); color: var(--text); }
+.btn-sm.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-sm.primary:hover { background: #5558e6; }
+.btn-sm.danger { color: var(--red); border-color: rgba(239,68,68,0.25); }
+.btn-sm.danger:hover { background: var(--red-bg); }
+
+.search-box { position: relative; margin-bottom: 8px; }
+.search-box input {
+  width: 100%; padding: 8px 12px 8px 30px; background: var(--card); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 12px; outline: none; font-family: inherit;
+}
+.search-box input:focus { border-color: var(--accent); }
+.search-box::before { content: '🔍'; position: absolute; left: 10px; top: 8px; font-size: 11px; opacity: 0.4; }
+
+.entry-list { }
+.entry-item {
+  padding: 10px 12px; margin-bottom: 4px; border-radius: var(--radius); cursor: pointer;
+  border: 1px solid transparent; background: var(--card); transition: all 0.15s; position: relative;
+}
+.entry-item:hover { border-color: var(--border2); background: var(--surface); }
+.entry-item .cat { font-size: 10px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.entry-item .title { font-size: 13px; font-weight: 500; }
+.entry-item .preview { font-size: 11px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-item .actions { position: absolute; right: 8px; top: 8px; display: flex; gap: 3px; opacity: 0; }
+.entry-item:hover .actions { opacity: 1; }
+.act-btn { width: 22px; height: 22px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--muted); cursor: pointer; font-size: 10px; display: flex; align-items: center; justify-content: center; }
+.act-btn:hover { color: var(--text); }
+.act-btn.del:hover { color: var(--red); border-color: rgba(239,68,68,0.3); }
+.empty-state { text-align: center; padding: 30px 16px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+
+/* Main Content */
+.main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; background: var(--bg); }
+
+.content-header {
+  height: 48px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--border);
+  gap: 12px; flex-shrink: 0;
+}
+.content-header .ch-title { font-size: 15px; font-weight: 600; }
+.content-header .ch-spacer { flex: 1; }
+
+.model-selector { display: flex; align-items: center; gap: 8px; }
+.model-selector label { font-size: 11px; color: var(--muted); font-weight: 500; }
+.model-selector select {
+  padding: 6px 10px; border-radius: 7px; border: 1px solid var(--border); background: var(--card);
+  color: var(--text); font-size: 12px; outline: none; cursor: pointer; font-family: inherit;
+}
+.model-selector select:focus { border-color: var(--accent); }
+.status-dot {
+  font-size: 11px; padding: 3px 10px; border-radius: 10px; cursor: pointer; font-weight: 500;
+  transition: all 0.2s;
+}
+.status-dot.on { background: var(--green-bg); color: var(--green); }
+.status-dot.off { background: var(--red-bg); color: var(--red); }
+
+/* Popover */
+.api-popover {
+  position: absolute; top: calc(100% + 8px); right: 0; width: 300px; background: var(--card);
+  border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px; z-index: 50;
+  display: none; box-shadow: var(--shadow);
+}
 .api-popover.show { display: block; }
-.api-popover .pop-field { margin-bottom: 10px; }
-.api-popover .pop-label { font-size: 10px; color: var(--muted); margin-bottom: 3px; }
-.api-popover .pop-value { font-size: 12px; color: var(--text); background: var(--surface); padding: 6px 10px; border-radius: 6px; word-break: break-all; font-family: monospace; }
-.api-popover .pop-actions { margin-top: 12px; display: flex; gap: 6px; justify-content: flex-end; }
-.api-popover .pop-actions button { font-size: 11px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
-.api-popover .pop-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.chat-messages { flex: 1; overflow-y: auto; padding: 24px 20px; }
-.chat-welcome { text-align: center; padding-top: 80px; }
-.chat-welcome .w-icon { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, var(--accent), var(--accent2)); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; }
-.chat-welcome h3 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+.api-popover .pf { margin-bottom: 10px; }
+.api-popover .pf-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px; }
+.api-popover .pf-value { font-size: 12px; color: var(--text2); background: var(--surface); padding: 6px 10px; border-radius: 6px; word-break: break-all; font-family: "SF Mono","Consolas",monospace; }
+.api-popover .pf-actions { margin-top: 12px; display: flex; gap: 6px; justify-content: flex-end; }
+.api-popover .pf-actions button { font-size: 11px; padding: 5px 12px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-family: inherit; }
+.api-popover .pf-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* Chat */
+.chat-area { flex: 1; overflow-y: auto; padding: 24px 28px; }
+.chat-welcome { text-align: center; padding-top: 100px; }
+.chat-welcome .w-icon { width: 56px; height: 56px; border-radius: 16px; background: linear-gradient(135deg, var(--accent), var(--accent2)); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #fff; }
+.chat-welcome h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
 .chat-welcome p { color: var(--muted); font-size: 13px; }
-.chat-welcome .kb-stat { margin-top: 20px; font-size: 12px; color: var(--muted); }
-.chat-welcome .kb-stat strong { color: var(--accent); }
-.msg { margin-bottom: 20px; }
-.msg .msg-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.msg .msg-avatar { width: 28px; height: 28px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; }
-.msg.user .msg-avatar { background: rgba(99,102,241,0.15); color: var(--accent); }
-.msg.assistant .msg-avatar { background: rgba(16,185,129,0.15); color: var(--green); }
+.msg { margin-bottom: 24px; animation: msgIn 0.25s ease; }
+@keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+.msg .msg-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.msg .msg-avatar { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+.msg.user .msg-avatar { background: var(--accent-glow); }
+.msg.assistant .msg-avatar { background: var(--green-bg); }
 .msg .msg-role { font-size: 12px; font-weight: 600; }
 .msg.user .msg-role { color: var(--accent); }
 .msg.assistant .msg-role { color: var(--green); }
-.msg .msg-kb-badge { font-size: 10px; background: rgba(245,158,11,0.15); color: var(--amber); padding: 1px 8px; border-radius: 8px; margin-left: 4px; }
-.msg .msg-body { font-size: 14px; line-height: 1.75; color: #d4d4d8; padding-left: 36px; white-space: pre-wrap; word-break: break-word; }
+.msg .msg-tag { font-size: 10px; background: var(--amber-bg); color: var(--amber); padding: 1px 8px; border-radius: 8px; margin-left: 4px; }
+.msg .msg-body { font-size: 14px; line-height: 1.8; color: var(--text2); padding-left: 38px; white-space: pre-wrap; word-break: break-word; }
 .msg .msg-body.streaming::after { content: ' ▌'; animation: blink 1s step-end infinite; }
 @keyframes blink { 50% { opacity: 0; } }
-.chat-input-area { padding: 12px 20px 16px; border-top: 1px solid var(--border); }
+
+.chat-input-wrap { padding: 14px 20px 18px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .chat-input-row { display: flex; gap: 10px; align-items: flex-end; }
-.chat-input-wrap { flex: 1; }
-.chat-input-wrap textarea { width: 100%; padding: 12px 14px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; color: var(--text); font-size: 14px; outline: none; resize: none; min-height: 46px; max-height: 120px; font-family: inherit; line-height: 1.5; }
-.chat-input-wrap textarea:focus { border-color: var(--accent); }
-.btn-send { width: 46px; height: 46px; border-radius: 12px; border: none; background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff; cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-.chat-bottom-bar { display: flex; align-items: center; justify-content: space-between; padding: 0 4px 2px; }
-.chat-bottom-bar .kb-info { font-size: 11px; color: var(--muted); }
-.chat-bottom-bar .kb-info strong { color: var(--accent); }
-.chat-bottom-bar .actions button { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; }
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; justify-content: center; align-items: center; }
+.chat-input-box { flex: 1; }
+.chat-input-box textarea {
+  width: 100%; padding: 12px 16px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); color: var(--text); font-size: 14px; outline: none; resize: none;
+  min-height: 48px; max-height: 120px; font-family: inherit; line-height: 1.5; transition: border-color 0.2s;
+}
+.chat-input-box textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.btn-send {
+  width: 48px; height: 48px; border-radius: var(--radius-lg); border: none;
+  background: linear-gradient(135deg, var(--accent), var(--accent2)); color: #fff;
+  cursor: pointer; font-size: 16px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  transition: all 0.15s;
+}
+.btn-send:hover { opacity: 0.9; transform: scale(1.03); }
+.chat-footer { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0; }
+.chat-footer .info { font-size: 11px; color: var(--muted); }
+.chat-footer .info strong { color: var(--accent); font-weight: 600; }
+.chat-footer .acts { display: flex; gap: 8px; }
+.chat-footer .acts button { font-size: 11px; padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-family: inherit; }
+.chat-footer .acts button:hover { color: var(--text); }
+
+/* User table panel */
+.user-panel { flex: 1; overflow-y: auto; padding: 24px 28px; display: none; }
+.user-panel.active { display: block; }
+.user-panel .panel-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.user-panel .panel-top h3 { font-size: 18px; font-weight: 700; }
+.user-table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+.user-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.user-table thead tr { background: var(--card); }
+.user-table th { text-align: left; padding: 12px 16px; color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border); }
+.user-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); color: var(--text2); }
+.user-table tr:last-child td { border-bottom: none; }
+.user-table tr:hover td { background: rgba(255,255,255,0.02); }
+.user-table .role-pill { font-size: 11px; padding: 2px 10px; border-radius: 10px; font-weight: 600; }
+.user-table .role-pill.admin { background: var(--amber-bg); color: var(--amber); }
+.user-table .role-pill.user { background: var(--accent-glow); color: var(--accent); }
+
+/* Modal */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100; align-items: center; justify-content: center; }
 .modal-overlay.show { display: flex; }
-.modal { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 32px; width: 500px; max-height: 80vh; overflow-y: auto; }
-.modal h3 { font-size: 17px; font-weight: 600; margin-bottom: 20px; }
+.modal {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-xl);
+  padding: 28px 32px; width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: var(--shadow);
+  animation: modalIn 0.2s ease;
+}
+@keyframes modalIn { from { opacity: 0; transform: scale(0.96) translateY(8px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+.modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
 .modal .field { margin-bottom: 14px; }
-.modal label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.modal input, .modal textarea { width: 100%; padding: 10px 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+.modal label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 5px; }
+.modal input, .modal textarea {
+  width: 100%; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); font-size: 13px; outline: none; font-family: inherit;
+}
 .modal textarea { min-height: 100px; resize: vertical; }
 .modal input:focus, .modal textarea:focus { border-color: var(--accent); }
-.modal-actions { margin-top: 20px; display: flex; gap: 8px; justify-content: flex-end; }
-.modal-actions button { padding: 8px 18px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; }
+.modal-actions { margin-top: 22px; display: flex; gap: 8px; justify-content: flex-end; }
+.modal-actions button { padding: 9px 20px; border-radius: var(--radius); border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500; }
 .modal-actions button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.modal-actions button.danger { color: var(--red); }
-.admin-kb-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
-.admin-kb-table th { text-align: left; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--border); }
-.admin-kb-table td { padding: 6px 8px; border-bottom: 1px solid var(--border); }
-.admin-log-item { font-size: 11px; padding: 4px 8px; color: var(--muted); border-bottom: 1px solid var(--border); }
-.toast { position: fixed; bottom: 24px; right: 24px; padding: 12px 20px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text); font-size: 13px; z-index: 200; }
+.modal-actions button.danger { color: var(--red); border-color: rgba(239,68,68,0.25); }
+
+/* Auth modal */
+.auth-list { max-height: 360px; overflow-y: auto; }
+.auth-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; transition: background 0.1s; }
+.auth-row:hover { background: rgba(255,255,255,0.03); }
+.auth-row input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text); font-size: 13px; z-index: 200; animation: toastIn 0.3s ease; box-shadow: var(--shadow); font-weight: 500; }
+@keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 </style>
 </head>
 <body>
 
-<div id="loginPage">
-  <div class="login-wrap">
-    <div class="brand"><div class="icon">◆</div><h1>AI知识库</h1></div>
-    <div class="login-card">
-      <div class="field"><label>用户名</label><input type="text" id="loginUser" placeholder="输入用户名" autocomplete="off"></div>
-      <div class="field"><label>密码</label><input type="password" id="loginPass" placeholder="输入密码"></div>
-      <button id="loginBtn" onclick="handleLogin()">登 录</button>
-      <div class="login-err" id="loginErr"></div>
+<div class="login-page" id="loginPage">
+  <div class="login-card">
+    <div class="logo-area">
+      <div class="logo-icon">◆</div>
+      <h1>AI 知识库</h1>
+      <p class="sub">知识库驱动的智能问答系统</p>
     </div>
+    <div class="field"><label>用户名</label><input type="text" id="loginUser" placeholder="输入用户名" autocomplete="off"></div>
+    <div class="field"><label>密码</label><input type="password" id="loginPass" placeholder="输入密码"></div>
+    <button id="loginBtn" onclick="handleLogin()">登 录</button>
+    <div class="login-err" id="loginErr"></div>
   </div>
 </div>
 
-<div id="mainPage">
+<div class="app" id="app">
   <div class="topbar">
-    <div class="logo"><div class="dot"></div><span>AI知识库</span></div>
+    <div class="logo"><div class="dot"></div>AI 知识库</div>
     <div class="right">
-      <span class="role-badge" id="roleBadge"></span>
-      <span class="user" id="displayName"></span>
+      <span class="badge" id="roleBadge"></span>
+      <span class="uname" id="displayName"></span>
       <button class="btn-ghost" onclick="openPwdModal()">修改密码</button>
       <button class="btn-ghost" onclick="doLogout()">退出</button>
     </div>
   </div>
+
   <div class="app-body">
     <div class="sidebar" id="sidebar">
-      <div class="sidebar-section" id="adminSection" style="display:none">
-        <h4>用户管理 <span class="count" id="userCount"></span></h4>
-        <div class="sidebar-actions"><button class="btn-pill primary" onclick="showUserPanel()">管理用户</button></div>
-      </div>
-      <div class="sidebar-section">
-        <h4>知识库 <span class="count" id="kbCount">0 条</span></h4>
-        <div class="sidebar-actions">
-          <button class="btn-pill primary" onclick="openAddModal()">+ 添加条目</button>
-          <button class="btn-pill" onclick="exportCSV()">导出</button>
-          <button class="btn-pill" onclick="importCSV()">导入</button>
-          <button class="btn-pill" onclick="clearAllKB()" style="color:var(--red);border-color:rgba(239,68,68,0.3);">清空</button>
+      <div class="sidebar-nav">
+        <div class="nav-item active" data-panel="kb" onclick="switchSidePanel('kb')">
+          <span class="icon">📚</span>知识库<span class="badge-count" id="kbCount">0</span>
         </div>
-        <div class="sidebar-search"><input type="text" id="kbSearch" placeholder="搜索知识条目..." oninput="refreshKBSidebar()"></div>
-        <div class="sidebar-list" id="kbSidebarList"></div>
+        <div class="nav-item" data-panel="users" id="navUsers" style="display:none;" onclick="switchSidePanel('users')">
+          <span class="icon">👥</span>用户管理<span class="badge-count" id="userCountNav">0</span>
+        </div>
+      </div>
+
+      <div class="sidebar-panel active" id="panel-kb">
+        <div class="panel-actions">
+          <button class="btn-sm primary" onclick="openAddModal()">+ 添加</button>
+          <button class="btn-sm" onclick="exportCSV()">导出</button>
+          <button class="btn-sm" onclick="importCSV()">导入</button>
+          <button class="btn-sm danger" onclick="clearAllKB()">清空</button>
+        </div>
+        <div class="search-box"><input type="text" id="kbSearch" placeholder="搜索条目..." oninput="refreshKBSidebar()"></div>
+        <div class="entry-list" id="kbSidebarList"></div>
+      </div>
+
+      <div class="sidebar-panel" id="panel-users">
+        <div class="panel-actions">
+          <button class="btn-sm primary" onclick="openCreateUserModal()">+ 创建账号</button>
+        </div>
+        <div class="entry-list" id="adminUserList"></div>
       </div>
     </div>
+
     <div class="main-content">
-      <div class="chat-header">
-        <button class="toggle-sidebar" onclick="toggleSidebar()">☰</button>
-        <span class="section-title" id="sectionTitle" style="cursor:pointer;" onclick="if(document.getElementById('userPanel').style.display==='block')hideUserPanel()">知识库问答</span>
-        <span class="header-spacer"></span>
-        <button id="btnBackToChat" class="btn-pill" style="display:none;" onclick="hideUserPanel()">← 返回问答</button>
-        <div class="model-area" id="modelArea">
+      <div class="content-header">
+        <span class="ch-title" id="chTitle">知识库问答</span>
+        <span class="ch-spacer"></span>
+        <button id="btnBackChat" class="btn-sm" style="display:none;" onclick="showChatView()">← 返回问答</button>
+        <div class="model-selector" id="modelSelector">
           <label>模型</label>
           <select id="chatModelSelect" onchange="onModelChange()">
             <option value="deepseek-chat">DeepSeek V3</option>
@@ -193,40 +354,50 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
             <option value="glm-4-flash">GLM-4 Flash</option>
             <option value="gpt-4o-mini">GPT-4o Mini</option>
           </select>
-          <span class="api-status-badge" id="apiStatus" onclick="toggleAPIPopover(event)">未配置</span>
-          <div class="api-popover" id="apiPopover">
-            <div class="pop-field"><div class="pop-label">API 地址</div><div class="pop-value" id="popEndpoint">-</div></div>
-            <div class="pop-field"><div class="pop-label">API Key</div><div class="pop-value" id="popKey">-</div></div>
-            <div class="pop-field"><div class="pop-label">模型</div><div class="pop-value" id="popModel">-</div></div>
-            <div class="pop-actions"><button onclick="openConfigModal();closeAPIPopover();">编辑</button><button class="primary" onclick="closeAPIPopover()">关闭</button></div>
-      </div>
-      <div id="userPanel" style="display:none;flex:1;overflow-y:auto;padding:20px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <h3 style="font-size:16px;">用户管理</h3>
-          <button class="btn-pill primary" onclick="openCreateUserModal()">+ 创建账号</button>
+          <span class="status-dot off" id="apiStatus" onclick="toggleAPIPopover(event)" style="position:relative;">
+            未配置
+            <div class="api-popover" id="apiPopover">
+              <div class="pf"><div class="pf-label">API 地址</div><div class="pf-value" id="popEndpoint">-</div></div>
+              <div class="pf"><div class="pf-label">API Key</div><div class="pf-value" id="popKey">-</div></div>
+              <div class="pf"><div class="pf-label">模型</div><div class="pf-value" id="popModel">-</div></div>
+              <div class="pf-actions"><button onclick="openConfigModal();closeAPIPopover();">编辑</button><button class="primary" onclick="closeAPIPopover()">关闭</button></div>
+            </div>
+          </span>
         </div>
-        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
-          <table style="width:100%;border-collapse:collapse;font-size:13px;">
-            <thead><tr style="color:var(--muted);text-align:left;background:var(--card);">
-              <th style="padding:10px 16px;">用户名</th><th style="padding:10px 16px;">角色</th><th style="padding:10px 16px;">知识库</th><th style="padding:10px 16px;">对话</th><th style="padding:10px 16px;">操作</th>
-            </tr></thead>
+      </div>
+
+      <div class="chat-area" id="chatArea">
+        <div class="chat-welcome"><div class="w-icon">✦</div><h3>知识库智能问答</h3><p>在左侧录入资料后提问，模型基于知识库回答</p></div>
+      </div>
+
+      <div class="user-panel" id="userPanel">
+        <div class="panel-top">
+          <h3>用户管理</h3>
+          <button class="btn-sm primary" onclick="openCreateUserModal()">+ 创建账号</button>
+        </div>
+        <div class="user-table-wrap">
+          <table class="user-table">
+            <thead><tr><th>用户名</th><th>角色</th><th>知识库</th><th>对话</th><th>操作</th></tr></thead>
             <tbody id="userManageTable"></tbody>
           </table>
         </div>
       </div>
-    </div>
-      </div>
-      <div class="chat-messages" id="chatMessages">
-        <div class="chat-welcome"><div class="w-icon">✦</div><h3>基于知识库的智能问答</h3><p>在左侧知识库录入资料后提问</p><div class="kb-stat" id="welcomeKbStat"></div></div>
-      </div>
-      <div class="chat-input-area">
-        <div class="chat-input-row"><div class="chat-input-wrap"><textarea id="chatInput" placeholder="Enter 发送，Shift+Enter 换行..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea></div><button class="btn-send" id="btnSend" onclick="sendMessage()">➤</button></div>
-        <div class="chat-bottom-bar"><div class="kb-info">知识库条目：<strong id="kbInfoCount">0</strong> 条</div><div class="actions"><button onclick="clearChat()">清空对话</button></div></div>
+
+      <div class="chat-input-wrap" id="chatInputArea">
+        <div class="chat-input-row">
+          <div class="chat-input-box"><textarea id="chatInput" placeholder="Enter 发送，Shift+Enter 换行..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea></div>
+          <button class="btn-send" id="btnSend" onclick="sendMessage()">➤</button>
+        </div>
+        <div class="chat-footer">
+          <div class="info">知识库 <strong id="kbInfoCount">0</strong> 条 · 每次提问自动附带</div>
+          <div class="acts"><button onclick="clearChat()">清空对话</button></div>
+        </div>
       </div>
     </div>
   </div>
 </div>
 
+<!-- Modals -->
 <div class="modal-overlay" id="modalOverlay"><div class="modal">
   <h3 id="modalTitle">添加知识条目</h3><input type="hidden" id="modalEditId">
   <div class="field"><label>分类</label><input type="text" id="modalCategory" placeholder="如：个人信息、工作经历"></div>
@@ -236,7 +407,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
 </div></div>
 
 <div class="modal-overlay" id="configOverlay"><div class="modal" style="width:520px;">
-  <h3>API 配置 - <span id="cfgModelName" style="color:var(--accent);">-</span></h3>
+  <h3>API 配置 — <span id="cfgModelName" style="color:var(--accent);">-</span></h3>
   <div class="field"><label>API 地址</label><input type="text" id="cfgEndpoint" placeholder="https://api.deepseek.com/v1"></div>
   <div class="field"><label>API Key</label><input type="text" id="cfgApiKey" placeholder="sk-..."></div>
   <div class="modal-actions"><button onclick="closeConfigModal()">取消</button><button class="primary" onclick="saveConfig()">保存</button></div>
@@ -255,18 +426,16 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
   <div class="modal-actions"><button onclick="closePwdModal()">取消</button><button class="primary" onclick="changePassword()">确认</button></div>
 </div></div>
 
-<div class="modal-overlay" id="adminViewOverlay"><div class="modal" style="width:600px;">
-  <h3><span id="adminViewTitle">用户资料</span></h3><div id="adminViewContent"></div>
+<div class="modal-overlay" id="adminViewOverlay"><div class="modal" style="width:650px;">
+  <h3 id="adminViewTitle">用户资料</h3><div id="adminViewContent"></div>
   <div class="modal-actions"><button class="primary" onclick="closeAdminView()">关闭</button></div>
 </div></div>
 
-<div class="modal-overlay" id="authOverlay"><div class="modal" style="width:550px;">
-  <h3>知识库授权 - <span id="authTargetName" style="color:var(--accent);"></span></h3>
-  <div style="margin-bottom:10px;font-size:12px;color:var(--muted);">
-    勾选用户可查看 <span id="authTargetName2" style="color:var(--accent);"></span> 的知识库
-  </div>
-  <div style="max-height:40vh;overflow-y:auto;" id="authUserList"></div>
-  <div class="modal-actions"><button onclick="closeAuthModal()">取消</button><button class="primary" onclick="saveAuth()">保存授权</button></div>
+<div class="modal-overlay" id="authOverlay"><div class="modal" style="width:500px;">
+  <h3>知识库授权 — <span id="authTargetName" style="color:var(--accent);"></span></h3>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">勾选用户将能查看 <b id="authTargetName2" style="color:var(--accent);"></b> 的知识库</p>
+  <div class="auth-list" id="authUserList"></div>
+  <div class="modal-actions"><button onclick="closeAuthModal()">取消</button><button class="primary" onclick="saveAuth()">保存</button></div>
 </div></div>
 
 <script>
@@ -301,8 +470,8 @@ function api(method, path, body) {
 
 function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function() { t.remove(); }, 2500); }
-window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('collapsed'); };
 
+// ===== Login =====
 window.handleLogin = function() {
   var u = document.getElementById('loginUser').value.trim();
   var p = document.getElementById('loginPass').value.trim();
@@ -317,30 +486,31 @@ window.handleLogin = function() {
     }
     session = r.data;
     currentUser = r.data.user.user_metadata.username || u;
-    currentUser = r.data.user.user_metadata.username || u;
     api('GET', '/rest/v1/profiles?select=role&id=eq.' + encodeURIComponent(r.data.user.id)).then(function(pr) {
       if (pr.ok && pr.data && pr.data.length > 0) currentRole = pr.data[0].role;
-      showMain();
+      showApp();
     });
   });
 };
 
-function showMain() {
+function showApp() {
   document.getElementById('loginPage').style.display = 'none';
-  document.getElementById('mainPage').classList.add('show');
+  document.getElementById('app').classList.add('active');
   document.getElementById('displayName').textContent = currentUser;
   var b = document.getElementById('roleBadge');
   b.textContent = currentRole === 'admin' ? '管理员' : '用户';
-  b.className = 'role-badge ' + currentRole;
-  document.getElementById('adminSection').style.display = currentRole === 'admin' ? 'block' : 'none';
-  if (currentRole === 'admin') loadAdminPanel();
+  b.className = 'badge ' + currentRole;
+  if (currentRole === 'admin') {
+    document.getElementById('navUsers').style.display = 'flex';
+    loadUserTable();
+  }
   loadKB(); loadConfig(); loadChatHistory();
   addLog('登录');
 }
 
 window.doLogout = function() {
   session = null; currentUser = null; currentRole = 'user';
-  document.getElementById('mainPage').classList.remove('show');
+  document.getElementById('app').classList.remove('active');
   document.getElementById('loginPage').style.display = 'flex';
 };
 
@@ -349,6 +519,35 @@ function addLog(action) {
   if (uid) api('POST', '/rest/v1/logs', { user_id: uid, username: currentUser, action: action });
 }
 
+// ===== Sidebar =====
+window.switchSidePanel = function(panel) {
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.toggle('active', n.dataset.panel === panel); });
+  document.querySelectorAll('.sidebar-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-' + panel); });
+  if (panel === 'users') {
+    loadUserTable();
+    document.getElementById('chTitle').textContent = '用户管理';
+    document.getElementById('btnBackChat').style.display = 'inline-block';
+    document.getElementById('chatArea').style.display = 'none';
+    document.getElementById('chatInputArea').style.display = 'none';
+    document.getElementById('userPanel').classList.add('active');
+    document.getElementById('modelSelector').style.display = 'none';
+  } else {
+    showChatView();
+  }
+};
+
+window.showChatView = function() {
+  document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.toggle('active', n.dataset.panel === 'kb'); });
+  document.querySelectorAll('.sidebar-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-kb'); });
+  document.getElementById('chTitle').textContent = '知识库问答';
+  document.getElementById('btnBackChat').style.display = 'none';
+  document.getElementById('chatArea').style.display = '';
+  document.getElementById('chatInputArea').style.display = '';
+  document.getElementById('userPanel').classList.remove('active');
+  document.getElementById('modelSelector').style.display = '';
+};
+
+// ===== KB =====
 function loadKB() {
   var uid = session.user.id;
   api('GET', '/rest/v1/knowledge_base?select=*&user_id=eq.' + encodeURIComponent(uid) + '&order=updated_at.desc').then(function(r) {
@@ -358,22 +557,54 @@ function loadKB() {
 
 window.refreshKBSidebar = function() {
   var el = document.getElementById('kbSidebarList');
-  var q = ((document.getElementById('kbSearch')||{}).value||'').toLowerCase();
+  var q = ((document.getElementById('kbSearch') || {}).value || '').toLowerCase();
   var filtered = kbCache.filter(function(e) { if (!q) return true; return (e.category+''+e.title+''+e.content).toLowerCase().indexOf(q)!==-1; });
-  el.innerHTML = filtered.length===0 ? '<div class="sidebar-empty">暂无条目</div>' :
+  el.innerHTML = filtered.length === 0 ? '<div class="empty-state">📭 暂无条目</div>' :
     filtered.map(function(e) {
-      var pv = (e.content||'').substring(0,40);
-      return '<div class="entry-card" style="position:relative;" onclick="openEditModal(\''+e.id+'\')"><div class="ec-cat">'+esc(e.category||'未分类')+'</div><div class="ec-title">'+esc(e.title||'')+'</div><div class="ec-preview">'+esc(pv)+(e.content&&e.content.length>40?'...':'')+'</div><div class="ec-actions"><button class="ec-action" onclick="event.stopPropagation();openEditModal(\''+e.id+'\')">E</button><button class="ec-action del" onclick="event.stopPropagation();deleteById(\''+e.id+'\')">X</button></div></div>';
+      var pv = (e.content || '').substring(0, 40);
+      return '<div class="entry-item" onclick="openEditModal(\'' + e.id + '\')">' +
+        '<div class="cat">' + esc(e.category || '未分类') + '</div><div class="title">' + esc(e.title || '') + '</div>' +
+        '<div class="preview">' + esc(pv) + (e.content && e.content.length > 40 ? '...' : '') + '</div>' +
+        '<div class="actions"><button class="act-btn" onclick="event.stopPropagation();openEditModal(\'' + e.id + '\')">E</button><button class="act-btn del" onclick="event.stopPropagation();deleteById(\'' + e.id + '\')">X</button></div></div>';
     }).join('');
-  document.getElementById('kbCount').textContent = kbCache.length + ' 条';
+  document.getElementById('kbCount').textContent = kbCache.length;
   document.getElementById('kbInfoCount').textContent = kbCache.length;
 };
 
-function loadAdminPanel() {
-  var count = 0;
-  api('GET', '/rest/v1/profiles?select=id').then(function(r) {
-    count = (r.data||[]).length;
-    document.getElementById('userCount').textContent = count + ' 人';
+window.clearAllKB = function() {
+  if (!confirm('确定清空所有知识库条目？此操作不可恢复！')) return;
+  api('DELETE', '/rest/v1/knowledge_base?user_id=eq.' + encodeURIComponent(session.user.id)).then(function() { loadKB(); toast('已清空'); });
+};
+
+// ===== User Table =====
+function loadUserTable() {
+  document.getElementById('userCountNav').textContent = '';
+  api('GET', '/rest/v1/profiles?select=*').then(function(r) {
+    var users = (r.ok && r.data) ? r.data : [];
+    document.getElementById('userCountNav').textContent = users.length;
+    Promise.all(users.map(function(u) {
+      return Promise.all([
+        api('GET', '/rest/v1/knowledge_base?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.kbCount=(rr.data||[]).length;}),
+        api('GET', '/rest/v1/chat_history?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.chatCount=(rr.data||[]).length;})
+      ]);
+    })).then(function() {
+      var table = document.getElementById('userManageTable');
+      var list = document.getElementById('adminUserList');
+      var html = users.map(function(u) {
+        var btns = '';
+        if (u.username !== 'root') {
+          btns += '<button class="btn-sm" onclick="toggleAdmin(\''+esc(u.username)+'\')">'+(u.role==='admin'?'取消管理':'设为管理')+'</button> ';
+          btns += '<button class="btn-sm" onclick="openAuthModal(\''+esc(u.username)+'\')">授权</button> ';
+          btns += '<button class="btn-sm danger" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(u.username)+'\')">删除</button> ';
+        }
+        btns += '<button class="btn-sm" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
+        var rolePill = '<span class="role-pill ' + u.role + '">' + (u.role==='admin'?'管理员':'用户') + '</span>';
+        return { row: '<tr><td>' + esc(u.username) + '</td><td>' + rolePill + '</td><td>' + (u.kbCount||0) + '</td><td>' + (u.chatCount||0) + '</td><td>' + btns + '</td></tr>',
+                 card: '<div class="entry-item"><div class="cat">'+(u.role==='admin'?'管理':'用户')+'</div><div class="title">'+esc(u.username)+'</div><div class="preview">KB '+(u.kbCount||0)+' · 对话 '+(u.chatCount||0)+'</div><div class="actions">'+btns+'</div></div>' };
+      });
+      if (table) table.innerHTML = html.map(function(h) { return h.row; }).join('');
+      if (list) list.innerHTML = html.map(function(h) { return h.card; }).join('');
+    });
   });
 }
 
@@ -383,83 +614,49 @@ window.adminViewKB = function(uid, uname) {
     api('GET', '/rest/v1/logs?select=*&user_id=eq.'+encodeURIComponent(uid)+'&order=created_at.desc&limit=30')
   ]).then(function(r) {
     var entries = r[0].data||[], logs = r[1].data||[];
-    var html = '<h4>知识库 ('+entries.length+')</h4>';
-    if (!entries.length) html += '<p>无条目</p>';
-    else html += '<table class="admin-kb-table"><tr><th>分类</th><th>标题</th><th>内容</th></tr>'+entries.map(function(e){return '<tr><td>'+esc(e.category||'')+'</td><td>'+esc(e.title||'')+'</td><td>'+esc((e.content||'').substring(0,80))+'</td></tr>';}).join('')+'</table>';
-    html += '<h4>最近操作</h4>';
-    if (!logs.length) html += '<p>无记录</p>';
-    else html += logs.map(function(l){return '<div class="admin-log-item">'+esc(l.created_at)+' - '+esc(l.action)+'</div>';}).join('');
+    var html = '<h4 style="margin-bottom:8px;color:var(--muted);">知识库条目 ('+entries.length+')</h4>';
+    if (!entries.length) html += '<p style="color:var(--muted);">无条目</p>';
+    else html += '<table style="width:100%;border-collapse:collapse;font-size:12px;"><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);"><th style="padding:6px 8px;">分类</th><th style="padding:6px 8px;">标题</th><th style="padding:6px 8px;">内容</th></tr>'+entries.map(function(e){return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;">'+esc(e.category||'')+'</td><td style="padding:6px 8px;">'+esc(e.title||'')+'</td><td style="padding:6px 8px;">'+esc((e.content||'').substring(0,80))+'</td></tr>';}).join('')+'</table>';
+    html += '<h4 style="margin:16px 0 8px;color:var(--muted);">最近操作</h4>';
+    if (!logs.length) html += '<p style="color:var(--muted);">无记录</p>';
+    else html += logs.map(function(l){return '<div style="font-size:11px;padding:4px 0;color:var(--muted);border-bottom:1px solid var(--border);">'+esc(l.created_at)+' — '+esc(l.action)+'</div>';}).join('');
     document.getElementById('adminViewTitle').textContent = uname + ' 的资料';
     document.getElementById('adminViewContent').innerHTML = html;
     document.getElementById('adminViewOverlay').classList.add('show');
   });
 };
-
 window.closeAdminView = function() { document.getElementById('adminViewOverlay').classList.remove('show'); };
-// ====== User manage (inline table) ======
-window.showUserPanel = function() {
-  document.querySelector('.chat-messages').style.display = 'none';
-  document.querySelector('.chat-input-area').style.display = 'none';
-  document.getElementById('modelArea').style.display = 'none';
-  document.getElementById('userPanel').style.display = 'block';
-  document.getElementById('sectionTitle').textContent = '用户管理';
-  document.getElementById('btnBackToChat').style.display = 'inline-block';
-  loadUserTable();
-};
-function hideUserPanel() {
-  document.querySelector('.chat-messages').style.display = '';
-  document.querySelector('.chat-input-area').style.display = '';
-  document.getElementById('modelArea').style.display = '';
-  document.getElementById('userPanel').style.display = 'none';
-  document.getElementById('sectionTitle').textContent = '知识库问答';
-  document.getElementById('btnBackToChat').style.display = 'none';
-}
-window.showChatPanel = function() { hideUserPanel(); };
 
-function loadUserTable() {
-  api('GET', '/rest/v1/profiles?select=*').then(function(r) {
-    var users = (r.ok && r.data) ? r.data : [];
-    document.getElementById('userCount').textContent = users.length + ' 人';
-    Promise.all(users.map(function(u) {
-      return Promise.all([
-        api('GET', '/rest/v1/knowledge_base?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.kbCount=(rr.data||[]).length;}),
-        api('GET', '/rest/v1/chat_history?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.chatCount=(rr.data||[]).length;})
-      ]);
-    })).then(function() {
-      document.getElementById('userManageTable').innerHTML = users.map(function(u) {
-        var btns = '';
-        if (u.username !== 'root') {
-          btns += '<button class="btn-pill" onclick="toggleAdmin(\''+esc(u.username)+'\')">'+(u.role==='admin'?'取消管理':'设为管理')+'</button> ';
-          btns += '<button class="btn-pill" onclick="openAuthModal(\''+esc(u.username)+'\')">授权</button> ';
-          btns += '<button class="btn-pill" style="color:var(--red);" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(u.username)+'\')">删除</button> ';
-        }
-        btns += '<button class="btn-pill" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
-        return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 16px;">'+esc(u.username)+'</td><td style="padding:10px 16px;"><span class="role-badge '+(u.role==='admin'?'admin':'user')+'">'+(u.role==='admin'?'管理员':'用户')+'</span></td><td style="padding:10px 16px;">'+(u.kbCount||0)+'</td><td style="padding:10px 16px;">'+(u.chatCount||0)+'</td><td style="padding:10px 16px;">'+btns+'</td></tr>';
-      }).join('');
+window.toggleAdmin = function(uname) {
+  api('POST', '/rest/v1/rpc/toggle_admin_role', { target_username: uname }).then(function(r) {
+    if (!r.ok || (r.data||{}).error) { toast('操作失败'); return; }
+    toast(uname + ' → ' + (r.data.new_role==='admin'?'管理员':'用户'));
+    loadUserTable();
+  });
+};
+
+window.adminDeleteUser = function(uid, uname) {
+  if (!confirm('确定删除 ' + uname + ' 及其所有数据？')) return;
+  api('DELETE', '/rest/v1/knowledge_base?user_id=eq.'+encodeURIComponent(uid)).then(function() {
+    api('DELETE', '/rest/v1/chat_history?user_id=eq.'+encodeURIComponent(uid)).then(function() {
+      api('DELETE', '/rest/v1/api_configs?user_id=eq.'+encodeURIComponent(uid)).then(function() {
+        api('DELETE', '/rest/v1/profiles?id=eq.'+encodeURIComponent(uid)).then(function() { loadUserTable(); toast('已删除'); });
+      });
     });
   });
-}
+};
 
-window.closeUserManage = function() { hideUserPanel(); };
-
-// ====== Auth modal ======
+// ===== Auth modal =====
 window.openAuthModal = function(uname) {
   document.getElementById('authTargetName').textContent = uname;
   document.getElementById('authTargetName2').textContent = uname;
-  api('GET', '/rest/v1/profiles?select=*').then(function(r) {
-    var users = (r.data||[]).filter(function(u){return u.username!==uname;});
-    // 查询现有权限
-    api('GET', '/rest/v1/kb_permissions?select=viewer_id&owner_id=eq.'+encodeURIComponent(users[0]?users[0].id:'')).then(function() {});
-    // 更好的方式：获取所有profiles + 用函数查权限
-    api('POST', '/rest/v1/rpc/get_user_permissions', { target_username: uname }).then(function(pr) {
-      var perms = pr.data || [];
-      var viewerNames = [];
-      perms.forEach(function(p) { viewerNames.push(p.viewer_username); });
+  api('POST', '/rest/v1/rpc/get_user_permissions', { target_username: uname }).then(function(pr) {
+    var perms = pr.data || [];
+    var viewerNames = perms.map(function(p) { return p.viewer_username; });
+    api('GET', '/rest/v1/profiles?select=username,role').then(function(ur) {
+      var users = (ur.data||[]).filter(function(u){return u.username!==uname;});
       document.getElementById('authUserList').innerHTML = users.map(function(u) {
-        var checked = viewerNames.indexOf(u.username) !== -1;
-        return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:var(--surface);">'+
-          '<input type="checkbox" data-username="'+esc(u.username)+'" '+(checked?'checked':'')+' style="accent-color:var(--accent);">'+
-          '<span>'+esc(u.username)+' <span style="color:var(--muted);font-size:11px;">('+u.role+')</span></span></label>';
+        return '<label class="auth-row"><input type="checkbox" data-username="'+esc(u.username)+'" '+(viewerNames.indexOf(u.username)!==-1?'checked':'')+'><span>'+esc(u.username)+'</span><span style="color:var(--muted);font-size:11px;margin-left:auto;">'+u.role+'</span></label>';
       }).join('');
       window._authOwner = uname;
       document.getElementById('authOverlay').classList.add('show');
@@ -471,41 +668,11 @@ window.saveAuth = function() {
   var owner = window._authOwner;
   var checks = document.querySelectorAll('#authUserList input[type=checkbox]');
   var promises = [];
-  checks.forEach(function(cb) {
-    promises.push(api('POST', '/rest/v1/rpc/grant_kb_access', { owner_username: owner, viewer_username: cb.dataset.username }));
-  });
-  Promise.all(promises).then(function() {
-    closeAuthModal(); toast('授权已更新');
-  });
+  checks.forEach(function(cb) { promises.push(api('POST', '/rest/v1/rpc/grant_kb_access', { owner_username: owner, viewer_username: cb.dataset.username })); });
+  Promise.all(promises).then(function() { closeAuthModal(); toast('授权已更新'); });
 };
 
-// ====== Clear KB ======
-window.clearAllKB = function() {
-  if (!confirm('确定清空所有知识库条目？此操作不可恢复！')) return;
-  var uid = session.user.id;
-  api('DELETE', '/rest/v1/knowledge_base?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-    loadKB(); toast('知识库已清空');
-  });
-};
-
-window.toggleAdmin = function(uname) {
-  api('POST', '/rest/v1/rpc/toggle_admin_role', { target_username: uname }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('操作失败: '+((r.data||{}).error||'')); return; }
-    toast(uname + ' -> ' + (r.data.new_role==='admin'?'管理员':'用户'));
-    if (document.getElementById('userManageOverlay').classList.contains('show')) openUserManageModal();
-  });
-};
-window.adminDeleteUser = function(uid, uname) {
-  if (!confirm('确定删除 '+uname+' 及其所有数据？')) return;
-  api('DELETE', '/rest/v1/knowledge_base?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-    api('DELETE', '/rest/v1/chat_history?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-      api('DELETE', '/rest/v1/api_configs?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-        api('DELETE', '/rest/v1/profiles?id=eq.'+encodeURIComponent(uid)).then(function() { loadAdminPanel(); toast('已删除'); });
-      });
-    });
-  });
-};
-
+// ===== User CRUD =====
 window.openCreateUserModal = function() { document.getElementById('createUserOverlay').classList.add('show'); };
 window.closeCreateUserModal = function() { document.getElementById('createUserOverlay').classList.remove('show'); };
 window.createUser = function() {
@@ -514,7 +681,7 @@ window.createUser = function() {
   if (!uname||!pwd) { toast('请填写用户名和密码'); return; }
   api('POST', '/rest/v1/rpc/create_app_user', { username: uname, password: pwd }).then(function(r) {
     if (!r.ok || (r.data||{}).error) { toast('失败'); return; }
-    closeCreateUserModal(); loadAdminPanel(); toast('用户 '+uname+' 已创建');
+    closeCreateUserModal(); loadUserTable(); toast('用户 ' + uname + ' 已创建');
   });
 };
 
@@ -529,6 +696,7 @@ window.changePassword = function() {
   });
 };
 
+// ===== Chat =====
 window.sendMessage = function() {
   if (isStreaming) { if (abortCtrl) abortCtrl.abort(); return; }
   var cfg = getCurrentConfig();
@@ -570,35 +738,38 @@ window.sendMessage = function() {
   function finish() { isStreaming=false;abortCtrl=null;btn.textContent='➤';btn.style.background='';finalizeMsg(msgEl,content);
     if(content&&content.indexOf('[已停止]')===-1){var uid=session.user.id;api('POST','/rest/v1/chat_history',[{user_id:uid,role:'user',content:question},{user_id:uid,role:'assistant',content:content}]);} }
 };
-function appendMsg(role,text,kbCount,streaming){var c=document.getElementById('chatMessages');var d=document.createElement('div');d.className='msg '+role;var a=role==='user'?'You':'AI',n=role==='user'?'你':'模型';var b=role==='user'&&kbCount>0?'<span class="msg-kb-badge">+'+kbCount+'条KB</span>':'';d.innerHTML='<div class="msg-header"><div class="msg-avatar">'+a+'</div><span class="msg-role">'+n+'</span>'+b+'</div><div class="msg-body'+(streaming?' streaming':'')+'">'+esc(text)+'</div>';c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
-function updateStreamMsg(el,text){el.querySelector('.msg-body').textContent=text;document.getElementById('chatMessages').scrollTop=document.getElementById('chatMessages').scrollHeight;}
+
+function appendMsg(role,text,kbCount,streaming){var c=document.getElementById('chatArea');var d=document.createElement('div');d.className='msg '+role;var n=role==='user'?'你':'AI';var b=role==='user'&&kbCount>0?'<span class="msg-tag">+'+kbCount+'条KB</span>':'';d.innerHTML='<div class="msg-head"><div class="msg-avatar">'+(role==='user'?'👤':'🤖')+'</div><span class="msg-role">'+n+'</span>'+b+'</div><div class="msg-body'+(streaming?' streaming':'')+'">'+esc(text)+'</div>';c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function updateStreamMsg(el,text){el.querySelector('.msg-body').textContent=text;document.getElementById('chatArea').scrollTop=document.getElementById('chatArea').scrollHeight;}
 function finalizeMsg(el,text){el.querySelector('.msg-body').classList.remove('streaming');el.querySelector('.msg-body').textContent=text;}
 function showMsgError(el,msg){el.querySelector('.msg-body').classList.remove('streaming');el.querySelector('.msg-body').textContent='Error: '+msg;el.querySelector('.msg-body').style.color='#ef4444';}
 window.clearChat=function(){api('DELETE','/rest/v1/chat_history?user_id=eq.'+encodeURIComponent(session.user.id)).then(function(){loadChatHistory();});};
-function loadChatHistory(){api('GET','/rest/v1/chat_history?select=*&user_id=eq.'+encodeURIComponent(session.user.id)+'&order=created_at.asc').then(function(r){var hist=r.data||[];var c=document.getElementById('chatMessages');if(hist.length===0){c.innerHTML='<div class="chat-welcome"><div class="w-icon">✦</div><h3>智能问答</h3><p>在左侧录入知识后提问</p></div>';return;}c.innerHTML='';hist.forEach(function(m){appendMsg(m.role,m.content,0);});c.scrollTop=c.scrollHeight;});}
+function loadChatHistory(){api('GET','/rest/v1/chat_history?select=*&user_id=eq.'+encodeURIComponent(session.user.id)+'&order=created_at.asc').then(function(r){var hist=r.data||[];var c=document.getElementById('chatArea');if(hist.length===0){c.innerHTML='<div class="chat-welcome"><div class="w-icon">✦</div><h3>知识库智能问答</h3><p>在左侧录入资料后提问</p></div>';return;}c.innerHTML='';hist.forEach(function(m){appendMsg(m.role,m.content,0);});c.scrollTop=c.scrollHeight;});}
 window.autoResize=function(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';};
 
+// ===== Config =====
 function loadConfig(){api('GET','/rest/v1/api_configs?select=*&user_id=eq.'+encodeURIComponent(session.user.id)).then(function(r){(r.data||[]).forEach(function(c){configCache[c.model_id]={endpoint:c.endpoint,api_key:c.api_key};});updateAPIStatus();});}
 function getModelId(){return document.getElementById('chatModelSelect').value;}
 function getCurrentConfig(){return configCache[getModelId()]||{};}
 window.openConfigModal=function(){var mid=getModelId(),cfg=getCurrentConfig(),p=modelPresets[mid];document.getElementById('cfgModelName').textContent=p?p.name:mid;document.getElementById('cfgEndpoint').value=cfg.endpoint||(p?p.endpoint:'');document.getElementById('cfgApiKey').value=cfg.api_key||'';document.getElementById('configOverlay').classList.add('show');};
 window.closeConfigModal=function(){document.getElementById('configOverlay').classList.remove('show');};
 window.saveConfig=function(){var mid=getModelId();configCache[mid]={endpoint:document.getElementById('cfgEndpoint').value.trim(),api_key:document.getElementById('cfgApiKey').value.trim()};api('POST','/rest/v1/api_configs',{user_id:session.user.id,model_id:mid,endpoint:configCache[mid].endpoint,api_key:configCache[mid].api_key}).then(function(){closeConfigModal();updateAPIStatus();toast('已保存');});};
-function updateAPIStatus(){var cfg=getCurrentConfig(),el=document.getElementById('apiStatus'),mid=getModelId(),p=modelPresets[mid];document.getElementById('popEndpoint').textContent=cfg.endpoint||(p?p.endpoint:'-');document.getElementById('popKey').textContent=cfg.api_key||'-';document.getElementById('popModel').textContent=p?p.name:mid;if(cfg.endpoint&&cfg.api_key){el.textContent='已配置';el.className='api-status-badge set';}else{el.textContent='未配置';el.className='api-status-badge unset';}}
+function updateAPIStatus(){var cfg=getCurrentConfig(),el=document.getElementById('apiStatus'),mid=getModelId(),p=modelPresets[mid];document.getElementById('popEndpoint').textContent=cfg.endpoint||(p?p.endpoint:'-');document.getElementById('popKey').textContent=cfg.api_key||'-';document.getElementById('popModel').textContent=p?p.name:mid;if(cfg.endpoint&&cfg.api_key){el.textContent='已配置';el.className='status-dot on';}else{el.textContent='未配置';el.className='status-dot off';}}
 window.onModelChange=function(){updateAPIStatus();};
-window.toggleAPIPopover=function(e){e.stopPropagation();if(document.getElementById('apiStatus').classList.contains('unset')){openConfigModal();return;}var p=document.getElementById('apiPopover');if(p.classList.contains('show'))closeAPIPopover();else{updateAPIStatus();p.classList.add('show');}};
+window.toggleAPIPopover=function(e){e.stopPropagation();if(document.getElementById('apiStatus').classList.contains('off')){openConfigModal();return;}var p=document.getElementById('apiPopover');if(p.classList.contains('show'))closeAPIPopover();else{updateAPIStatus();p.classList.add('show');}};
 window.closeAPIPopover=function(){document.getElementById('apiPopover').classList.remove('show');};
 document.addEventListener('click',function(e){if(!e.target.closest('#apiStatus')&&!e.target.closest('#apiPopover'))closeAPIPopover();});
 
+// ===== Entry modal =====
 window.openAddModal=function(){document.getElementById('modalTitle').textContent='添加知识条目';document.getElementById('modalEditId').value='';document.getElementById('modalCategory').value='';document.getElementById('modalTitleInput').value='';document.getElementById('modalContent').value='';document.getElementById('modalDeleteBtn').style.display='none';document.getElementById('modalOverlay').classList.add('show');};
 window.openEditModal=function(id){var e=kbCache.find(function(x){return x.id===id;});if(!e)return;document.getElementById('modalTitle').textContent='编辑知识条目';document.getElementById('modalEditId').value=e.id;document.getElementById('modalCategory').value=e.category||'';document.getElementById('modalTitleInput').value=e.title||'';document.getElementById('modalContent').value=e.content||'';document.getElementById('modalDeleteBtn').style.display='inline-block';document.getElementById('modalOverlay').classList.add('show');};
 window.closeModal=function(){document.getElementById('modalOverlay').classList.remove('show');};
-window.saveEntry=function(){var id=document.getElementById('modalEditId').value;var d={category:document.getElementById('modalCategory').value.trim(),title:document.getElementById('modalTitleInput').value.trim(),content:document.getElementById('modalContent').value.trim(),user_id:session.user.id,updated_at:new Date().toISOString()};if(!d.title){toast('请输入标题');return;}    if(id){api('PATCH','/rest/v1/knowledge_base?id=eq.'+encodeURIComponent(id),d).then(function(rr){if(!rr.ok)toast('保存失败: '+rr.status+' '+JSON.stringify(rr.data||rr.error));else{loadKB();closeModal();}});}else{d.id='kb_'+Date.now();d.created_at=new Date().toISOString();api('POST','/rest/v1/knowledge_base',d).then(function(rr){if(!rr.ok)toast('添加失败: '+rr.status+' '+JSON.stringify(rr.data||rr.error));else{loadKB();closeModal();}});}};
+window.saveEntry=function(){var id=document.getElementById('modalEditId').value;var d={category:document.getElementById('modalCategory').value.trim(),title:document.getElementById('modalTitleInput').value.trim(),content:document.getElementById('modalContent').value.trim(),user_id:session.user.id,updated_at:new Date().toISOString()};if(!d.title){toast('请输入标题');return;}if(id){api('PATCH','/rest/v1/knowledge_base?id=eq.'+encodeURIComponent(id),d).then(function(rr){if(!rr.ok)toast('保存失败');else{loadKB();closeModal();}});}else{d.id='kb_'+Date.now();d.created_at=new Date().toISOString();api('POST','/rest/v1/knowledge_base',d).then(function(rr){if(!rr.ok)toast('添加失败');else{loadKB();closeModal();}});}};
 window.deleteEntry=function(){var id=document.getElementById('modalEditId').value;if(!id||!confirm('确定删除？'))return;deleteById(id);closeModal();};
 window.deleteById=function(id){if(!confirm('确定删除？'))return;api('DELETE','/rest/v1/knowledge_base?id=eq.'+encodeURIComponent(id)).then(function(){loadKB();});};
 
-window.exportCSV=function(){if(!kbCache.length){toast('知识库为空');return;}var rows=kbCache.map(function(e){return[csvEsc(e.category||''),csvEsc(e.title||''),csvEsc(e.content||'')].join(',');});var csv='category,title,content\n'+rows.join('\n');var blob=new Blob(['\uFEFF'+csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kb.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);};
-window.importCSV=function(){var inp=document.createElement('input');inp.type='file';inp.accept='.csv';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;var reader=new FileReader();reader.onload=function(ev){var lines=ev.target.result.split(/\r?\n/).filter(function(l){return l.trim();});if(lines.length<2){toast('格式不正确');return;}var ps=[];for(var i=1;i<lines.length;i++){var cols=parseCSV(lines[i]);if(cols.length<2)continue;ps.push(api('POST','/rest/v1/knowledge_base',{id:'kb_'+Date.now()+'_'+i,category:(cols[0]||'').trim(),title:(cols[1]||'').trim(),content:(cols[2]||'').trim(),user_id:session.user.id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));}Promise.all(ps).then(function(){loadKB();toast('导入成功');});};reader.readAsText(f,'UTF-8');};inp.click();};
+window.exportCSV=function(){if(!kbCache.length){toast('知识库为空');return;}var rows=kbCache.map(function(e){return[csvEsc(e.category||''),csvEsc(e.title||''),csvEsc(e.content||'')].join(',');});var csv='category,title,content\n'+rows.join('\n');var b=new Blob(['\uFEFF'+csv],{type:'text/csv'});var a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='kb.csv';document.body.appendChild(a);a.click();document.body.removeChild(a);};
+window.importCSV=function(){var inp=document.createElement('input');inp.type='file';inp.accept='.csv';inp.onchange=function(e){var f=e.target.files[0];if(!f)return;var r=new FileReader();r.onload=function(ev){var lines=ev.target.result.split(/\r?\n/).filter(function(l){return l.trim();});if(lines.length<2){toast('格式错误');return;}var ps=[];for(var i=1;i<lines.length;i++){var cols=parseCSV(lines[i]);if(cols.length<2)continue;ps.push(api('POST','/rest/v1/knowledge_base',{id:'kb_'+Date.now()+'_'+i,category:(cols[0]||'').trim(),title:(cols[1]||'').trim(),content:(cols[2]||'').trim(),user_id:session.user.id,created_at:new Date().toISOString(),updated_at:new Date().toISOString()}));}Promise.all(ps).then(function(){loadKB();toast('导入成功');});};r.readAsText(f,'UTF-8');};inp.click();};
 function csvEsc(s){if(s.indexOf(',')!==-1||s.indexOf('"')!==-1||s.indexOf('\n')!==-1)return'"'+s.replace(/"/g,'""')+'"';return s;}
 function parseCSV(l){var r=[],c='',q=false;for(var i=0;i<l.length;i++){var ch=l[i];if(q){if(ch==='"'){if(i+1<l.length&&l[i+1]==='"'){c+='"';i++;}else q=false;}else c+=ch;}else{if(ch==='"')q=true;else if(ch===','){r.push(c);c='';}else c+=ch;}}r.push(c);return r;}
 
