@@ -332,7 +332,7 @@ window.doLogin = function() {
   if (!u || !p) return;
   var email = u + '@ai.kb';
   sb.auth.signInWithPassword({ email: email, password: p }).then(function(r) {
-    if (r.error) { document.getElementById('loginErr').style.display = 'block'; return; }
+    if (r.error) { document.getElementById('loginErr').style.display = 'block'; document.getElementById('loginErr').textContent = r.error.message || '用户名或密码错误'; return; }
     currentUser = r.data.user.user_metadata.username || u;
     currentUid = r.data.user.id;
     currentRole = 'user';
