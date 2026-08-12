@@ -10,13 +10,13 @@ var SUPABASE_ANON_KEY = 'sb_publishable_Uu0pkURMecr9_eSs5i1O6Q_QoSuRhA2';
 
 var sb = {
   _url: '', _key: '', _token: null, _uid: null,
-  init: function(url, key) { this._url = url; this._key = key; },
+  init: function(url, key) { sb._url = url; sb._key = key; },
   _fetch: function(path, opts) {
     opts = opts || {}; opts.headers = opts.headers || {};
-    opts.headers['apikey'] = this._key;
+    opts.headers['apikey'] = sb._key;
+    opts.headers['Authorization'] = 'Bearer ' + sb._token;
     if (opts.body) opts.headers['Content-Type'] = 'application/json';
-    if (this._token) opts.headers['Authorization'] = 'Bearer ' + this._token;
-    return fetch(this._url + path, opts).then(function(r) {
+    return fetch(sb._url + path, opts).then(function(r) {
       return r.text().then(function(t) {
         try { var d = JSON.parse(t); return { data: r.ok ? d : null, error: r.ok ? null : (d.message || d.error || d), status: r.status }; }
         catch(e) { return { data: null, error: t, status: r.status }; }
@@ -25,30 +25,29 @@ var sb = {
   },
   auth: {
     signIn: function(p) {
-      var self = sb;
-      return self._fetch('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify(p) }).then(function(r) {
-        if (!r.error) { self._token = r.data.access_token; self._uid = r.data.user.id; }
+      return sb._fetch('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify(p) }).then(function(r) {
+        if (!r.error) { sb._token = r.data.access_token; sb._uid = r.data.user.id; }
         return r;
       });
     },
     signOut: function() { sb._token = null; sb._uid = null; }
   },
   from: function(table) {
-    var self = sb, _t = table, _q = '', _h = {};
+    var _t = table, _q = '', _h = {};
     return {
       select: function(c) { _q = 'select=' + (c||'*'); return this; },
       eq: function(c, v) { _q += (_q?'&':'') + c + '=eq.' + encodeURIComponent(v); return this; },
       order: function(c, o) { _q += (_q?'&':'') + 'order=' + c + '.' + ((o&&o.ascending===false)?'desc':'asc'); return this; },
       limit: function(n) { _q += (_q?'&':'') + 'limit=' + n; return this; },
       single: function() { _h['Accept'] = 'application/vnd.pgrst.object+json'; return this; },
-      insert: function(d) { return self._fetch('/rest/v1/' + _t, { method: 'POST', body: JSON.stringify(d) }); },
-      update: function(d) { var f = _q; _q = ''; return self._fetch('/rest/v1/' + _t + '?' + f, { method: 'PATCH', body: JSON.stringify(d) }); },
-      delete: function() { var f = _q; _q = ''; return self._fetch('/rest/v1/' + _t + '?' + f, { method: 'DELETE' }); },
-      upsert: function(d, o) { var uq = (o&&o.onConflict) ? '&on_conflict=' + o.onConflict : ''; return self._fetch('/rest/v1/' + _t + '?' + _q + uq, { method: 'POST', body: JSON.stringify(d) }); },
-      then: function(r) { return self._fetch('/rest/v1/' + _t + '?' + _q, { headers: _h }).then(r); }
+      insert: function(d) { return sb._fetch('/rest/v1/' + _t, { method: 'POST', body: JSON.stringify(d) }); },
+      update: function(d) { var f = _q; _q = ''; return sb._fetch('/rest/v1/' + _t + '?' + f, { method: 'PATCH', body: JSON.stringify(d) }); },
+      delete: function() { var f = _q; _q = ''; return sb._fetch('/rest/v1/' + _t + '?' + f, { method: 'DELETE' }); },
+      upsert: function(d, o) { var uq = (o&&o.onConflict) ? '&on_conflict=' + o.onConflict : ''; return sb._fetch('/rest/v1/' + _t + '?' + _q + uq, { method: 'POST', body: JSON.stringify(d) }); },
+      then: function(r) { return sb._fetch('/rest/v1/' + _t + '?' + _q, { headers: _h }).then(r); }
     };
   },
-  rpc: function(fn, p) { return this._fetch('/rest/v1/rpc/' + fn, { method: 'POST', body: JSON.stringify(p) }); }
+  rpc: function(fn, p) { return sb._fetch('/rest/v1/rpc/' + fn, { method: 'POST', body: JSON.stringify(p) }); }
 };
 </script>
 <style>
