@@ -270,7 +270,7 @@ function api(method, path, body) {
   return fetch(SUPABASE_URL + path, opts).then(function(r) {
     return r.text().then(function(t) {
       try { var d = JSON.parse(t); return { ok: r.ok, data: d, status: r.status }; }
-      catch(e) { return { ok: false, data: null, error: t, status: r.status }; }
+      catch(e) { return { ok: r.ok, data: t || null, status: r.status }; }
     });
   });
 }
@@ -292,12 +292,9 @@ window.handleLogin = function() {
       document.getElementById('loginErr').style.display = 'block'; return;
     }
     session = r.data;
-    document.getElementById('loginErr').textContent = 'Token: ' + (session.access_token ? session.access_token.substring(0,40)+'...' : '无') + ' | API状态:';
-    document.getElementById('loginErr').style.display = 'block';
-    document.getElementById('loginErr').style.color = '#10b981';
+    currentUser = r.data.user.user_metadata.username || u;
     currentUser = r.data.user.user_metadata.username || u;
     api('GET', '/rest/v1/profiles?select=role&id=eq.' + encodeURIComponent(r.data.user.id)).then(function(pr) {
-      document.getElementById('loginErr').textContent += ' Profiles:' + (pr.ok ? 'OK' : pr.status+' '+JSON.stringify(pr.data||pr.error));
       if (pr.ok && pr.data && pr.data.length > 0) currentRole = pr.data[0].role;
       showMain();
     });
