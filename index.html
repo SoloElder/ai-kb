@@ -475,6 +475,7 @@ function api(method, path, body) {
   });
 }
 
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function formatMsgBody(text) {
   if (!text) return '';
   return text
