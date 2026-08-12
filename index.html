@@ -16,7 +16,12 @@ var sb = {
     opts.headers['apikey'] = this._key;
     if (opts.body) opts.headers['Content-Type'] = 'application/json';
     if (this._token) opts.headers['Authorization'] = 'Bearer ' + this._token;
-    return fetch(this._url + path, opts).then(function(r) { return r.json().then(function(d) { return { data: d, error: r.ok ? null : d }; }); });
+    return fetch(this._url + path, opts).then(function(r) {
+      return r.text().then(function(t) {
+        try { var d = JSON.parse(t); return { data: r.ok ? d : null, error: r.ok ? null : (d.message || d.error || d), status: r.status }; }
+        catch(e) { return { data: null, error: t, status: r.status }; }
+      });
+    });
   },
   auth: {
     signIn: function(p) {
@@ -25,7 +30,8 @@ var sb = {
         if (!r.error) { self._token = r.data.access_token; self._uid = r.data.user.id; }
         return r;
       });
-    }
+    },
+    signOut: function() { sb._token = null; sb._uid = null; }
   },
   from: function(table) {
     var self = sb, _t = table, _q = '', _h = {};
@@ -215,7 +221,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
       <button id="loginBtn" onclick="handleLogin()">登 录</button>
       <div class="login-err" id="loginErr"></div>
     </div>
-    <div class="setup-hint">管理员: root / root</div>
+    <div class="setup-hint"></div>
   </div>
 </div>
 
@@ -352,7 +358,7 @@ window.handleLogin = function() {
     currentUid = r.data.user.id;
     currentRole = 'user';
     sb.from('profiles').select('role').eq('id', currentUid).single().then(function(pr) {
-      if (pr.data) currentRole = pr.data.role;
+      if (!pr.error && pr.data) currentRole = pr.data.role;
       showMain();
     });
   });
