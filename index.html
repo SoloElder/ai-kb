@@ -737,10 +737,10 @@ window.sendMessage = function() {
   appendMsg('user', question, kbCache.length);
 
   var messages = [];
-  messages.push({ role: 'system', content: '基于知识库回答，无相关信息时回复"未找到"。' });
+  messages.push({ role: 'system', content: '你是知识库检索助手。请基于以下知识库内容回答问题。\n\n回答格式要求（严格按此结构回复）：\n【分析总结】\n先给出基于知识库内容的分析总结。\n\n【参考条目】\n列出回答中引用了哪些知识库条目（标题），每个一行。如果知识库中没有相关信息，回复"知识库中未找到相关信息"。' });
   if (kbCache.length > 0) {
-    var kbText = kbCache.map(function(e,i) { return '条目'+(i+1)+'：\n分类：'+(e.category||'')+'\n标题：'+(e.title||'')+'\n内容：'+(e.content||''); }).join('\n\n');
-    messages.push({ role: 'user', content: '【知识库】\n'+kbText+'\n\n【问题】\n'+question });
+    var kbText = kbCache.map(function(e,i) { return '【条目ID:'+(i+1)+'】\n分类：'+(e.category||'')+'\n标题：'+(e.title||'')+'\n内容：'+(e.content||''); }).join('\n\n');
+    messages.push({ role: 'user', content: '【知识库内容】\n'+kbText+'\n\n【用户问题】\n'+question });
   } else { messages.push({ role: 'user', content: question }); }
 
   var btn = document.getElementById('btnSend'); btn.textContent = '■'; btn.style.background = '#ef4444'; isStreaming = true;
@@ -776,7 +776,7 @@ function loadChatHistory(){api('GET','/rest/v1/chat_history?select=*&user_id=eq.
 window.autoResize=function(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,120)+'px';};
 
 // ===== Config =====
-function loadConfig(){api('GET','/rest/v1/api_configs?select=*&user_id=eq.'+encodeURIComponent(session.user.id)).then(function(r){(r.data||[]).forEach(function(c){configCache[c.model_id]={endpoint:c.endpoint,api_key:c.api_key};});updateAPIStatus();});}
+function loadConfig(){api('GET','/rest/v1/api_configs?select=*&user_id=eq.'+encodeURIComponent(session.user.id)).then(function(r){if(!r.ok||!r.data)return;(r.data||[]).forEach(function(c){configCache[c.model_id]={endpoint:c.endpoint,api_key:c.api_key};});updateAPIStatus();});}
 function getModelId(){return document.getElementById('chatModelSelect').value;}
 function getCurrentConfig(){return configCache[getModelId()]||{};}
 window.openConfigModal=function(){var mid=getModelId(),cfg=getCurrentConfig(),p=modelPresets[mid];document.getElementById('cfgModelName').textContent=p?p.name:mid;document.getElementById('cfgEndpoint').value=cfg.endpoint||(p?p.endpoint:'');document.getElementById('cfgApiKey').value=cfg.api_key||'';document.getElementById('configOverlay').classList.add('show');};
