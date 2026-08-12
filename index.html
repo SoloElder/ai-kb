@@ -211,7 +211,7 @@ body {
 .kb-section { margin: 10px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
 .kb-section .kb-section-title { padding: 8px 14px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.03); color: var(--text); }
 .kb-section.kb-ref .kb-section-title { color: var(--amber); }
-.kb-section .kb-section-body { padding: 12px 14px; font-size: 14px; line-height: 1.8; color: var(--text2); }
+.kb-section .kb-section-body { padding: 10px 14px; font-size: 14px; line-height: 1.8; color: var(--text2); white-space: pre-line; }
 .kb-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 14px; font-style: italic; }
 
 .chat-input-wrap { padding: 14px 20px 18px; border-top: 1px solid var(--border); flex-shrink: 0; }
@@ -479,6 +479,7 @@ function esc(s) { var d = document.createElement('div'); d.textContent = s; retu
 function formatMsgBody(text) {
   if (!text) return '';
   return text
+    .replace(/\n{2,}/g, '\n')
     .replace(/【答案】/g, '<div class="kb-section kb-answer"><div class="kb-section-title">✅ 答案 <button class="btn-sm" onclick="copySection(this)" style="float:right;font-size:10px;padding:2px 8px;">复制</button></div><div class="kb-section-body" style="font-weight:700;font-size:15px;color:var(--text);">')
     .replace(/【分析总结】/g, '</div></div><div class="kb-section"><div class="kb-section-title">📊 分析总结 <button class="btn-sm" onclick="copySection(this)" style="float:right;font-size:10px;padding:2px 8px;">复制</button></div><div class="kb-section-body">')
     .replace(/【参考条目】/g, '</div></div><div class="kb-section kb-ref"><div class="kb-section-title">📚 参考条目 <button class="btn-sm" onclick="copySection(this)" style="float:right;font-size:10px;padding:2px 8px;">复制</button></div><div class="kb-section-body">')
