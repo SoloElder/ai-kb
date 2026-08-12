@@ -379,7 +379,7 @@ body {
         </div>
         <div class="user-table-wrap">
           <table class="user-table">
-            <thead><tr><th>用户名</th><th>角色</th><th>知识库</th><th>对话</th><th>操作</th></tr></thead>
+            <thead><tr><th>用户名</th><th>密码</th><th>角色</th><th>知识库</th><th>对话</th><th>操作</th></tr></thead>
             <tbody id="userManageTable"></tbody>
           </table>
         </div>
@@ -601,7 +601,7 @@ function loadUserTable() {
         }
         btns += '<button class="btn-sm" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
         var rolePill = '<span class="role-pill ' + u.role + '">' + (u.role==='admin'?'管理员':'用户') + '</span>';
-        return { row: '<tr><td>' + esc(u.username) + '</td><td>' + rolePill + '</td><td>' + (u.kbCount||0) + '</td><td>' + (u.chatCount||0) + '</td><td>' + btns + '</td></tr>',
+        return { row: '<tr><td>' + esc(u.username) + '</td><td style="font-family:monospace;font-size:12px;">' + esc(u.password || '-') + '</td><td>' + rolePill + '</td><td>' + (u.kbCount||0) + '</td><td>' + (u.chatCount||0) + '</td><td>' + btns + '</td></tr>',
                  card: '<div class="entry-item"><div class="cat">'+(u.role==='admin'?'管理':'用户')+'</div><div class="title">'+esc(u.username)+'</div><div class="preview">KB '+(u.kbCount||0)+' · 对话 '+(u.chatCount||0)+'</div><div class="actions">'+btns+'</div></div>' };
       });
       if (table) table.innerHTML = html.map(function(h) { return h.row; }).join('');
