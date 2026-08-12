@@ -669,7 +669,7 @@ window.saveAuth = function() {
   var selected = [];
   checks.forEach(function(cb) { if (cb.checked) selected.push(cb.dataset.username); });
   api('POST', '/rest/v1/rpc/save_kb_permissions', { owner_username: owner, viewer_usernames: selected }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('保存失败'); return; }
+    if (!r.ok || (r.data||{}).error) { toast('保存失败: ' + JSON.stringify(r.data || r.error)); return; }
     closeAuthModal(); toast('授权已更新');
   });
 };
