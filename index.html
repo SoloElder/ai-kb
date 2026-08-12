@@ -637,12 +637,9 @@ window.toggleAdmin = function(uname) {
 
 window.adminDeleteUser = function(uid, uname) {
   if (!confirm('确定删除 ' + uname + ' 及其所有数据？')) return;
-  api('DELETE', '/rest/v1/knowledge_base?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-    api('DELETE', '/rest/v1/chat_history?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-      api('DELETE', '/rest/v1/api_configs?user_id=eq.'+encodeURIComponent(uid)).then(function() {
-        api('DELETE', '/rest/v1/profiles?id=eq.'+encodeURIComponent(uid)).then(function() { loadUserTable(); toast('已删除'); });
-      });
-    });
+  api('POST', '/rest/v1/rpc/delete_user', { target_username: uname }).then(function(r) {
+    if (!r.ok || (r.data||{}).error) { toast('删除失败: ' + JSON.stringify(r.data)); return; }
+    loadUserTable(); toast('已删除 ' + uname);
   });
 };
 
