@@ -208,6 +208,11 @@ body {
 .msg .msg-body { font-size: 14px; line-height: 1.8; color: var(--text2); padding-left: 38px; white-space: pre-wrap; word-break: break-word; }
 .msg .msg-body.streaming::after { content: ' ▌'; animation: blink 1s step-end infinite; }
 @keyframes blink { 50% { opacity: 0; } }
+.kb-section { margin: 10px 0; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+.kb-section .kb-section-title { padding: 8px 14px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,0.03); color: var(--text); }
+.kb-section.kb-ref .kb-section-title { color: var(--amber); }
+.kb-section .kb-section-body { padding: 12px 14px; font-size: 14px; line-height: 1.8; color: var(--text2); }
+.kb-empty { padding: 16px; text-align: center; color: var(--muted); font-size: 14px; font-style: italic; }
 
 .chat-input-wrap { padding: 14px 20px 18px; border-top: 1px solid var(--border); flex-shrink: 0; }
 .chat-input-row { display: flex; gap: 10px; align-items: flex-end; }
@@ -470,7 +475,14 @@ function api(method, path, body) {
   });
 }
 
-function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function formatMsgBody(text) {
+  if (!text) return '';
+  return text
+    .replace(/【分析总结】/g, '<div class="kb-section"><div class="kb-section-title">📊 分析总结</div><div class="kb-section-body">')
+    .replace(/【参考条目】/g, '</div></div><div class="kb-section kb-ref"><div class="kb-section-title">📚 参考条目</div><div class="kb-section-body">')
+    .replace(/【知识库中未找到相关信息】/g, '<div class="kb-empty">知识库中未找到相关信息</div>')
+    + '</div></div>';
+}
 function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function() { t.remove(); }, 2500); }
 
 // ===== Login =====
@@ -769,7 +781,7 @@ window.sendMessage = function() {
 
 function appendMsg(role,text,kbCount,streaming){var c=document.getElementById('chatArea');var d=document.createElement('div');d.className='msg '+role;var n=role==='user'?'你':'AI';var b=role==='user'&&kbCount>0?'<span class="msg-tag">+'+kbCount+'条KB</span>':'';d.innerHTML='<div class="msg-head"><div class="msg-avatar">'+(role==='user'?'👤':'🤖')+'</div><span class="msg-role">'+n+'</span>'+b+'</div><div class="msg-body'+(streaming?' streaming':'')+'">'+esc(text)+'</div>';c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
 function updateStreamMsg(el,text){el.querySelector('.msg-body').textContent=text;document.getElementById('chatArea').scrollTop=document.getElementById('chatArea').scrollHeight;}
-function finalizeMsg(el,text){el.querySelector('.msg-body').classList.remove('streaming');el.querySelector('.msg-body').textContent=text;}
+function finalizeMsg(el,text){el.querySelector('.msg-body').classList.remove('streaming');el.querySelector('.msg-body').innerHTML=formatMsgBody(text);}
 function showMsgError(el,msg){el.querySelector('.msg-body').classList.remove('streaming');el.querySelector('.msg-body').textContent='Error: '+msg;el.querySelector('.msg-body').style.color='#ef4444';}
 window.clearChat=function(){api('DELETE','/rest/v1/chat_history?user_id=eq.'+encodeURIComponent(session.user.id)).then(function(){loadChatHistory();});};
 function loadChatHistory(){api('GET','/rest/v1/chat_history?select=*&user_id=eq.'+encodeURIComponent(session.user.id)+'&order=created_at.asc').then(function(r){var hist=r.data||[];var c=document.getElementById('chatArea');if(hist.length===0){c.innerHTML='<div class="chat-welcome"><div class="w-icon">✦</div><h3>知识库智能问答</h3><p>在左侧录入资料后提问</p></div>';return;}c.innerHTML='';hist.forEach(function(m){appendMsg(m.role,m.content,0);});c.scrollTop=c.scrollHeight;});}
