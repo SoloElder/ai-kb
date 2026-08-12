@@ -134,7 +134,32 @@ VALUES (
 UPDATE profiles SET role = 'admin' WHERE username = 'root';
 
 -- ============================================================
--- RPC 函数：管理员创建用户（替代 Edge Function，无需 CLI 部署）
+-- 知识库权限表（授权用户查看其他人的知识库）
+-- ============================================================
+CREATE TABLE IF NOT EXISTS kb_permissions (
+  id BIGSERIAL PRIMARY KEY,
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  viewer_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  UNIQUE(owner_id, viewer_id)
+);
+ALTER TABLE kb_permissions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Owners manage own permissions" ON kb_permissions;
+CREATE POLICY "Owners manage own permissions" ON kb_permissions
+  FOR ALL USING (auth.uid() = owner_id OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'))
+  WITH CHECK (auth.uid() = owner_id OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
+
+-- 知识库 RLS 扩展：被授权用户可读取
+DROP POLICY IF EXISTS "Granted users read kb" ON knowledge_base;
+CREATE POLICY "Granted users read kb" ON knowledge_base
+  FOR SELECT USING (
+    user_id = auth.uid()
+    OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
+    OR EXISTS (SELECT 1 FROM kb_permissions WHERE owner_id = knowledge_base.user_id AND viewer_id = auth.uid())
+  );
+
+-- ============================================================
+-- RPC 函数：管理员创建用户
 -- ============================================================
 
 CREATE OR REPLACE FUNCTION create_app_user(username TEXT, password TEXT)
@@ -171,3 +196,66 @@ BEGIN
   RETURN jsonb_build_object('ok', true);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- RPC 函数：切换用户管理员身份
+-- ============================================================
+CREATE OR REPLACE FUNCTION toggle_admin_role(target_username TEXT)
+RETURNS JSON AS $$
+DECLARE
+  target_id UUID;
+  current_role TEXT;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin') THEN
+    RETURN jsonb_build_object('error', '需要管理员权限');
+  END IF;
+  SELECT id, role INTO target_id, current_role FROM profiles WHERE username = target_username;
+  IF target_id IS NULL THEN RETURN jsonb_build_object('error', '用户不存在'); END IF;
+  IF current_role = 'admin' THEN
+    UPDATE profiles SET role = 'user' WHERE id = target_id;
+    RETURN jsonb_build_object('ok', true, 'new_role', 'user');
+  ELSE
+    UPDATE profiles SET role = 'admin' WHERE id = target_id;
+    RETURN jsonb_build_object('ok', true, 'new_role', 'admin');
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
+-- RPC 函数：授权/取消用户查看某人的知识库
+-- ============================================================
+CREATE OR REPLACE FUNCTION grant_kb_access(owner_username TEXT, viewer_username TEXT)
+RETURNS JSON AS $$
+DECLARE
+  owner_id UUID;
+  viewer_id UUID;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin') THEN
+    RETURN jsonb_build_object('error', '需要管理员权限');
+  END IF;
+  SELECT id INTO owner_id FROM profiles WHERE username = owner_username;
+  SELECT id INTO viewer_id FROM profiles WHERE username = viewer_username;
+  IF owner_id IS NULL OR viewer_id IS NULL THEN RETURN jsonb_build_object('error', '用户不存在'); END IF;
+
+  DELETE FROM kb_permissions WHERE owner_id = owner_id AND viewer_id = viewer_id;
+  IF NOT FOUND THEN
+    INSERT INTO kb_permissions (owner_id, viewer_id) VALUES (owner_id, viewer_id);
+    RETURN jsonb_build_object('ok', true, 'action', 'granted');
+  ELSE
+    RETURN jsonb_build_object('ok', true, 'action', 'revoked');
+  END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 查询某用户的权限列表
+CREATE OR REPLACE FUNCTION get_user_permissions(target_username TEXT)
+RETURNS TABLE (owner_username TEXT, viewer_username TEXT) AS $$
+BEGIN
+  RETURN QUERY
+  SELECT p1.username, p2.username
+  FROM kb_permissions kp
+  JOIN profiles p1 ON p1.id = kp.owner_id
+  JOIN profiles p2 ON p2.id = kp.viewer_id
+  WHERE p1.username = target_username OR p2.username = target_username;
+END;
+$$ LANGUAGE plpgsql;
