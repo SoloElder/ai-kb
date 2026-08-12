@@ -479,12 +479,16 @@ function esc(s) { var d = document.createElement('div'); d.textContent = s; retu
 function formatMsgBody(text) {
   if (!text) return '';
   return text
-    .replace(/【答案】/g, '<div class="kb-section kb-answer"><div class="kb-section-title">✅ 答案</div><div class="kb-section-body" style="font-weight:700;font-size:15px;color:var(--text);">')
-    .replace(/【分析总结】/g, '</div></div><div class="kb-section"><div class="kb-section-title">📊 分析总结</div><div class="kb-section-body">')
-    .replace(/【参考条目】/g, '</div></div><div class="kb-section kb-ref"><div class="kb-section-title">📚 参考条目</div><div class="kb-section-body">')
+    .replace(/【答案】/g, '<div class="kb-section kb-answer"><div class="kb-section-title">✅ 答案 <button class="btn-sm" onclick="copySection(this)" style="float:right;font-size:10px;padding:2px 8px;">复制</button></div><div class="kb-section-body" style="font-weight:700;font-size:15px;color:var(--text);">')
+    .replace(/【分析总结】/g, '</div></div><div class="kb-section"><div class="kb-section-title">📊 分析总结 <button class="btn-sm" onclick="copySection(this)" style="float:right;font-size:10px;padding:2px 8px;">复制</button></div><div class="kb-section-body">')
+    .replace(/【参考条目】/g, '</div></div><div class="kb-section kb-ref"><div class="kb-section-title">📚 参考条目 <button class="btn-sm" onclick="copySection(this)" style="float:right;font-size:10px;padding:2px 8px;">复制</button></div><div class="kb-section-body">')
     .replace(/【知识库中未找到相关信息】/g, '<div class="kb-empty">知识库中未找到相关信息</div>')
     + '</div></div>';
 }
+window.copySection = function(btn) {
+  var text = btn.parentElement.nextElementSibling.textContent;
+  navigator.clipboard.writeText(text).then(function() { btn.textContent = '已复制'; setTimeout(function() { btn.textContent = '复制'; }, 1500); });
+};
 function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function() { t.remove(); }, 2500); }
 
 // ===== Login =====
@@ -759,11 +763,6 @@ window.sendMessage = function() {
 
   var btn = document.getElementById('btnSend'); btn.textContent = '■'; btn.style.background = '#ef4444'; isStreaming = true;
   var content = ''; var msgEl = appendMsg('assistant', '', 0, true);
-  var copyBtn = document.createElement('button');
-  copyBtn.textContent = '复制'; copyBtn.className = 'btn-sm';
-  copyBtn.style.cssText = 'position:absolute;right:0;top:0;';
-  copyBtn.onclick = function(e) { e.stopPropagation(); navigator.clipboard.writeText(content); toast('已复制'); };
-  msgEl.querySelector('.msg-head').appendChild(copyBtn);
   var model = document.getElementById('chatModelSelect').value;
   abortCtrl = new AbortController();
 
