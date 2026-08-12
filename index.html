@@ -163,7 +163,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
     <div class="sidebar" id="sidebar">
       <div class="sidebar-section" id="adminSection" style="display:none">
         <h4>用户管理 <span class="count" id="userCount"></span></h4>
-        <div class="sidebar-actions"><button class="btn-pill primary" onclick="openUserManageModal()">管理用户</button></div>
+        <div class="sidebar-actions"><button class="btn-pill primary" onclick="showUserPanel()">管理用户</button></div>
       </div>
       <div class="sidebar-section">
         <h4>知识库 <span class="count" id="kbCount">0 条</span></h4>
@@ -180,9 +180,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
     <div class="main-content">
       <div class="chat-header">
         <button class="toggle-sidebar" onclick="toggleSidebar()">☰</button>
-        <span class="section-title">知识库问答</span>
+        <span class="section-title" id="sectionTitle" style="cursor:pointer;" onclick="if(document.getElementById('userPanel').style.display==='block')hideUserPanel()">知识库问答</span>
         <span class="header-spacer"></span>
-        <div class="model-area">
+        <button id="btnBackToChat" class="btn-pill" style="display:none;" onclick="hideUserPanel()">← 返回问答</button>
+        <div class="model-area" id="modelArea">
           <label>模型</label>
           <select id="chatModelSelect" onchange="onModelChange()">
             <option value="deepseek-chat">DeepSeek V3</option>
@@ -198,8 +199,22 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
             <div class="pop-field"><div class="pop-label">API Key</div><div class="pop-value" id="popKey">-</div></div>
             <div class="pop-field"><div class="pop-label">模型</div><div class="pop-value" id="popModel">-</div></div>
             <div class="pop-actions"><button onclick="openConfigModal();closeAPIPopover();">编辑</button><button class="primary" onclick="closeAPIPopover()">关闭</button></div>
-          </div>
+      </div>
+      <div id="userPanel" style="display:none;flex:1;overflow-y:auto;padding:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h3 style="font-size:16px;">用户管理</h3>
+          <button class="btn-pill primary" onclick="openCreateUserModal()">+ 创建账号</button>
         </div>
+        <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;">
+          <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead><tr style="color:var(--muted);text-align:left;background:var(--card);">
+              <th style="padding:10px 16px;">用户名</th><th style="padding:10px 16px;">角色</th><th style="padding:10px 16px;">知识库</th><th style="padding:10px 16px;">对话</th><th style="padding:10px 16px;">操作</th>
+            </tr></thead>
+            <tbody id="userManageTable"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
       </div>
       <div class="chat-messages" id="chatMessages">
         <div class="chat-welcome"><div class="w-icon">✦</div><h3>基于知识库的智能问答</h3><p>在左侧知识库录入资料后提问</p><div class="kb-stat" id="welcomeKbStat"></div></div>
@@ -243,19 +258,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
 <div class="modal-overlay" id="adminViewOverlay"><div class="modal" style="width:600px;">
   <h3><span id="adminViewTitle">用户资料</span></h3><div id="adminViewContent"></div>
   <div class="modal-actions"><button class="primary" onclick="closeAdminView()">关闭</button></div>
-</div></div>
-
-<div class="modal-overlay" id="userManageOverlay"><div class="modal" style="width:700px;">
-  <h3>用户管理 <button class="btn-pill primary" onclick="openCreateUserModal()" style="margin-left:12px;">+ 创建账号</button></h3>
-  <div style="max-height:50vh;overflow-y:auto;">
-    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-      <thead><tr style="color:var(--muted);text-align:left;border-bottom:1px solid var(--border);">
-        <th style="padding:6px 8px;">用户名</th><th style="padding:6px 8px;">角色</th><th style="padding:6px 8px;">KB</th><th style="padding:6px 8px;">对话</th><th style="padding:6px 8px;">操作</th>
-      </tr></thead>
-      <tbody id="userManageTable"></tbody>
-    </table>
-  </div>
-  <div class="modal-actions"><button class="primary" onclick="closeUserManage()">关闭</button></div>
 </div></div>
 
 <div class="modal-overlay" id="authOverlay"><div class="modal" style="width:550px;">
@@ -394,10 +396,30 @@ window.adminViewKB = function(uid, uname) {
 };
 
 window.closeAdminView = function() { document.getElementById('adminViewOverlay').classList.remove('show'); };
-// ====== User manage modal ======
-window.openUserManageModal = function() {
+// ====== User manage (inline table) ======
+window.showUserPanel = function() {
+  document.querySelector('.chat-messages').style.display = 'none';
+  document.querySelector('.chat-input-area').style.display = 'none';
+  document.getElementById('modelArea').style.display = 'none';
+  document.getElementById('userPanel').style.display = 'block';
+  document.getElementById('sectionTitle').textContent = '用户管理';
+  document.getElementById('btnBackToChat').style.display = 'inline-block';
+  loadUserTable();
+};
+function hideUserPanel() {
+  document.querySelector('.chat-messages').style.display = '';
+  document.querySelector('.chat-input-area').style.display = '';
+  document.getElementById('modelArea').style.display = '';
+  document.getElementById('userPanel').style.display = 'none';
+  document.getElementById('sectionTitle').textContent = '知识库问答';
+  document.getElementById('btnBackToChat').style.display = 'none';
+}
+window.showChatPanel = function() { hideUserPanel(); };
+
+function loadUserTable() {
   api('GET', '/rest/v1/profiles?select=*').then(function(r) {
     var users = (r.ok && r.data) ? r.data : [];
+    document.getElementById('userCount').textContent = users.length + ' 人';
     Promise.all(users.map(function(u) {
       return Promise.all([
         api('GET', '/rest/v1/knowledge_base?select=id&user_id=eq.'+encodeURIComponent(u.id)).then(function(rr){u.kbCount=(rr.data||[]).length;}),
@@ -409,16 +431,16 @@ window.openUserManageModal = function() {
         if (u.username !== 'root') {
           btns += '<button class="btn-pill" onclick="toggleAdmin(\''+esc(u.username)+'\')">'+(u.role==='admin'?'取消管理':'设为管理')+'</button> ';
           btns += '<button class="btn-pill" onclick="openAuthModal(\''+esc(u.username)+'\')">授权</button> ';
-          btns += '<button class="btn-pill" style="color:var(--red);" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(u.username)+'\')">删除</button>';
+          btns += '<button class="btn-pill" style="color:var(--red);" onclick="adminDeleteUser(\''+u.id+'\',\''+esc(u.username)+'\')">删除</button> ';
         }
-        btns += ' <button class="btn-pill" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
-        return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:6px 8px;">'+esc(u.username)+'</td><td style="padding:6px 8px;"><span class="role-badge '+(u.role==='admin'?'admin':'user')+'">'+u.role+'</span></td><td style="padding:6px 8px;">'+(u.kbCount||0)+'</td><td style="padding:6px 8px;">'+(u.chatCount||0)+'</td><td style="padding:6px 8px;">'+btns+'</td></tr>';
+        btns += '<button class="btn-pill" onclick="adminViewKB(\''+u.id+'\',\''+esc(u.username)+'\')">查看</button>';
+        return '<tr style="border-bottom:1px solid var(--border);"><td style="padding:10px 16px;">'+esc(u.username)+'</td><td style="padding:10px 16px;"><span class="role-badge '+(u.role==='admin'?'admin':'user')+'">'+(u.role==='admin'?'管理员':'用户')+'</span></td><td style="padding:10px 16px;">'+(u.kbCount||0)+'</td><td style="padding:10px 16px;">'+(u.chatCount||0)+'</td><td style="padding:10px 16px;">'+btns+'</td></tr>';
       }).join('');
-      document.getElementById('userManageOverlay').classList.add('show');
     });
   });
-};
-window.closeUserManage = function() { document.getElementById('userManageOverlay').classList.remove('show'); };
+}
+
+window.closeUserManage = function() { hideUserPanel(); };
 
 // ====== Auth modal ======
 window.openAuthModal = function(uname) {
@@ -585,7 +607,6 @@ document.getElementById('configOverlay').addEventListener('click',function(e){if
 document.getElementById('createUserOverlay').addEventListener('click',function(e){if(e.target===this)closeCreateUserModal();});
 document.getElementById('pwdOverlay').addEventListener('click',function(e){if(e.target===this)closePwdModal();});
 document.getElementById('adminViewOverlay').addEventListener('click',function(e){if(e.target===this)closeAdminView();});
-document.getElementById('userManageOverlay').addEventListener('click',function(e){if(e.target===this)closeUserManage();});
 document.getElementById('authOverlay').addEventListener('click',function(e){if(e.target===this)closeAuthModal();});
 document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')handleLogin();});
 </script>
