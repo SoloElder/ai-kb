@@ -784,9 +784,9 @@ window.closeConfigModal=function(){document.getElementById('configOverlay').clas
 window.saveConfig=function(){var mid=getModelId(),ep=document.getElementById('cfgEndpoint').value.trim(),ak=document.getElementById('cfgApiKey').value.trim();if(!ak){toast('请输入API Key');return;}configCache[mid]={endpoint:ep,api_key:ak};api('POST','/rest/v1/api_configs',{user_id:session.user.id,model_id:mid,endpoint:ep,api_key:ak}).then(function(){closeConfigModal();updateAPIStatus();toast('已保存');});};
 function updateAPIStatus(){var cfg=getCurrentConfig(),el=document.getElementById('apiStatus');if(!el)return;var mid=getModelId(),p=modelPresets[mid];var pe=document.getElementById('popEndpoint');if(pe)pe.textContent=cfg.endpoint||(p?p.endpoint:'-');var pk=document.getElementById('popKey');if(pk)pk.textContent=cfg.api_key||'-';var pm=document.getElementById('popModel');if(pm)pm.textContent=p?p.name:mid;if(cfg.endpoint&&cfg.api_key){el.textContent='已配置';el.className='status-dot on';}else{el.textContent='未配置';el.className='status-dot off';}}
 window.onModelChange=function(){updateAPIStatus();};
-window.toggleAPIPopover=function(e){e.stopPropagation();var s=document.getElementById('apiStatus');if(!s)return;if(s.classList.contains('off')){openConfigModal();return;}var p=document.getElementById('apiPopover');if(!p)return;if(p.classList.contains('show')){closeAPIPopover();}else{updateAPIStatus();p.classList.add('show');}};
-window.closeAPIPopover=function(){var p=document.getElementById('apiPopover');if(p)p.classList.remove('show');};
-document.addEventListener('click',function(e){if(!e.target.closest('#apiStatus')&&!e.target.closest('#apiPopover'))closeAPIPopover();});
+window.toggleAPIPopover=function(e){e.stopPropagation();var s=document.getElementById('apiStatus');if(!s)return;if(s.classList.contains('off')){openConfigModal();return;}openConfigModal();};
+window.closeAPIPopover=function(){};
+document.addEventListener('click',function(e){});
 
 // ===== Entry modal =====
 window.openAddModal=function(){document.getElementById('modalTitle').textContent='添加知识条目';document.getElementById('modalEditId').value='';document.getElementById('modalCategory').value='';document.getElementById('modalTitleInput').value='';document.getElementById('modalContent').value='';document.getElementById('modalDeleteBtn').style.display='none';document.getElementById('modalOverlay').classList.add('show');};
