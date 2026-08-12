@@ -59,38 +59,39 @@ ALTER TABLE api_configs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE logs ENABLE ROW LEVEL SECURITY;
 
 -- 用户可读自己的 profile
+DROP POLICY IF EXISTS "Users read own profile" ON profiles;
 CREATE POLICY "Users read own profile" ON profiles
   FOR SELECT USING (auth.uid() = id);
 
--- 管理员可读所有 profile
+DROP POLICY IF EXISTS "Admin read all profiles" ON profiles;
 CREATE POLICY "Admin read all profiles" ON profiles
   FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
--- 管理员可创建 profile（注册后插入）
+DROP POLICY IF EXISTS "Admin insert profiles" ON profiles;
 CREATE POLICY "Admin insert profiles" ON profiles
   FOR INSERT WITH CHECK (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin') OR auth.uid() = id);
 
--- 知识库：用户读写自己的
+DROP POLICY IF EXISTS "Users manage own kb" ON knowledge_base;
 CREATE POLICY "Users manage own kb" ON knowledge_base
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- 管理员读所有知识库
+DROP POLICY IF EXISTS "Admin read all kb" ON knowledge_base;
 CREATE POLICY "Admin read all kb" ON knowledge_base
   FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
--- 对话历史：用户管理自己的
+DROP POLICY IF EXISTS "Users manage own chat" ON chat_history;
 CREATE POLICY "Users manage own chat" ON chat_history
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- API配置：用户管理自己的
+DROP POLICY IF EXISTS "Users manage own config" ON api_configs;
 CREATE POLICY "Users manage own config" ON api_configs
   FOR ALL USING (auth.uid() = user_id) WITH CHECK (auth.uid() = user_id);
 
--- 日志：管理员可读
+DROP POLICY IF EXISTS "Admin read logs" ON logs;
 CREATE POLICY "Admin read logs" ON logs
   FOR SELECT USING (EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin'));
 
--- 任何认证用户可写日志
+DROP POLICY IF EXISTS "Users insert logs" ON logs;
 CREATE POLICY "Users insert logs" ON logs
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
