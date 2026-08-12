@@ -552,8 +552,23 @@ window.showChatView = function() {
 // ===== KB =====
 function loadKB() {
   var uid = session.user.id;
-  api('GET', '/rest/v1/knowledge_base?select=*&or=(user_id.eq.' + encodeURIComponent(uid) + ',user_id.in.(SELECT owner_id FROM kb_permissions WHERE viewer_id = \'' + uid + '\'))&order=updated_at.desc').then(function(r) {
-    kbCache = (r.ok && r.data) ? r.data : []; refreshKBSidebar();
+  var ownP = api('GET', '/rest/v1/knowledge_base?select=*&user_id=eq.' + encodeURIComponent(uid) + '&order=updated_at.desc');
+  var grantP = api('GET', '/rest/v1/kb_permissions?select=owner_id&viewer_id=eq.' + encodeURIComponent(uid));
+  Promise.all([ownP, grantP]).then(function(r) {
+    var own = (r[0].ok && r[0].data) ? r[0].data : [];
+    var grants = (r[1].ok && r[1].data) ? r[1].data : [];
+    if (grants.length === 0) { kbCache = own; refreshKBSidebar(); return; }
+    var ownerIds = grants.map(function(g) { return g.owner_id; });
+    var uniqueOwnerIds = ownerIds.filter(function(v, i, a) { return a.indexOf(v) === i; });
+    var grantPromises = uniqueOwnerIds.map(function(oid) {
+      return api('GET', '/rest/v1/knowledge_base?select=*&user_id=eq.' + encodeURIComponent(oid) + '&order=updated_at.desc');
+    });
+    Promise.all(grantPromises).then(function(grantResults) {
+      var grantedKBs = [];
+      grantResults.forEach(function(gr) { if (gr.ok && gr.data) grantedKBs = grantedKBs.concat(gr.data); });
+      kbCache = own.concat(grantedKBs);
+      refreshKBSidebar();
+    });
   });
 }
 
