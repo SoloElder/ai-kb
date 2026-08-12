@@ -316,6 +316,9 @@ var modelPresets = {
 function init() {
   if (SUPABASE_URL.indexOf('YOUR_PROJECT') === 0) {
     document.getElementById('configBanner').style.display = 'block';
+  } else if (typeof supabase === 'undefined') {
+    document.getElementById('configBanner').innerHTML = '⚠ Supabase SDK 加载失败，请检查网络或刷新重试';
+    document.getElementById('configBanner').style.display = 'block';
   } else {
     sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
@@ -327,11 +330,15 @@ window.toggleSidebar = function() { document.getElementById('sidebar').classList
 
 // ====== Login ======
 window.doLogin = function() {
+  if (!sb) { document.getElementById('loginErr').textContent = '连接未就绪，请刷新页面'; document.getElementById('loginErr').style.display = 'block'; return; }
   var u = document.getElementById('loginUser').value.trim();
   var p = document.getElementById('loginPass').value.trim();
   if (!u || !p) return;
+  var btn = document.querySelector('#loginPage button');
+  btn.textContent = '登录中...'; btn.disabled = true;
   var email = u + '@ai.kb';
   sb.auth.signInWithPassword({ email: email, password: p }).then(function(r) {
+    btn.textContent = '登 录'; btn.disabled = false;
     if (r.error) {
       var errMap = { 'Invalid login credentials': '用户名或密码错误', 'Email logins are disabled': '邮箱登录未启用', 'Email not confirmed': '邮箱未确认' };
       document.getElementById('loginErr').style.display = 'block';
