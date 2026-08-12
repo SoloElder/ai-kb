@@ -292,6 +292,7 @@ window.handleLogin = function() {
       document.getElementById('loginErr').style.display = 'block'; return;
     }
     session = r.data;
+    console.log('Token:', session.access_token ? session.access_token.substring(0,30)+'...' : 'MISSING');
     currentUser = r.data.user.user_metadata.username || u;
     api('GET', '/rest/v1/profiles?select=role&id=eq.' + encodeURIComponent(r.data.user.id)).then(function(pr) {
       if (pr.ok && pr.data && pr.data.length > 0) currentRole = pr.data[0].role;
