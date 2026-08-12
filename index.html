@@ -629,7 +629,7 @@ window.closeAdminView = function() { document.getElementById('adminViewOverlay')
 
 window.toggleAdmin = function(uname) {
   api('POST', '/rest/v1/rpc/toggle_admin_role', { target_username: uname }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('操作失败'); return; }
+    if (!r.ok || (r.data||{}).error) { toast('操作失败: ' + ((r.data||{}).error || r.data || '未知错误')); return; }
     toast(uname + ' → ' + (r.data.new_role==='admin'?'管理员':'用户'));
     loadUserTable();
   });
@@ -680,7 +680,7 @@ window.createUser = function() {
   var pwd = document.getElementById('newPassword').value.trim();
   if (!uname||!pwd) { toast('请填写用户名和密码'); return; }
   api('POST', '/rest/v1/rpc/create_app_user', { username: uname, password: pwd }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('失败'); return; }
+    if (!r.ok || (r.data||{}).error) { toast('创建失败: ' + ((r.data||{}).error || r.data || r.error || '未知错误')); return; }
     closeCreateUserModal(); loadUserTable(); toast('用户 ' + uname + ' 已创建');
   });
 };
