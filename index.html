@@ -277,7 +277,7 @@ body {
 .auth-row:hover { background: rgba(255,255,255,0.03); }
 .auth-row input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
 .auth-row .auth-name { flex: 1; font-size: 13px; }
-.auth-row .auth-role { font-size: 11px; color: var(--muted); }
+.auth-row .auth-role { font-size: 10px; color: var(--muted); background: rgba(255,255,255,0.04); padding: 2px 8px; border-radius: 8px; margin-left: 8px; }
 
 /* Toast */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text); font-size: 13px; z-index: 200; animation: toastIn 0.3s ease; box-shadow: var(--shadow); font-weight: 500; }
@@ -655,7 +655,7 @@ window.openAuthModal = function(uname) {
     api('GET', '/rest/v1/profiles?select=username,role').then(function(ur) {
       var users = (ur.data||[]).filter(function(u){return u.username!==uname;});
       document.getElementById('authUserList').innerHTML = users.map(function(u) {
-        return '<label class="auth-row"><input type="checkbox" data-username="'+esc(u.username)+'" '+(viewerNames.indexOf(u.username)!==-1?'checked':'')+'><span class="auth-name">'+esc(u.username)+'</span><span class="auth-role">'+u.role+'</span></label>';
+        return '<label class="auth-row"><input type="checkbox" data-username="'+esc(u.username)+'" '+(viewerNames.indexOf(u.username)!==-1?'checked':'')+'><span class="auth-name">'+esc(u.username)+'</span><span class="auth-role">'+(u.role==='admin'?'管理':'用户')+'</span></label>';
       }).join('');
       window._authOwner = uname;
       document.getElementById('authOverlay').classList.add('show');
