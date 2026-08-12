@@ -552,7 +552,7 @@ window.showChatView = function() {
 // ===== KB =====
 function loadKB() {
   var uid = session.user.id;
-  api('GET', '/rest/v1/knowledge_base?select=*&user_id=eq.' + encodeURIComponent(uid) + '&order=updated_at.desc').then(function(r) {
+  api('GET', '/rest/v1/knowledge_base?select=*&or=(user_id.eq.' + encodeURIComponent(uid) + ',user_id.in.(SELECT owner_id FROM kb_permissions WHERE viewer_id = \'' + uid + '\'))&order=updated_at.desc').then(function(r) {
     kbCache = (r.ok && r.data) ? r.data : []; refreshKBSidebar();
   });
 }
