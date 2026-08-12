@@ -4,7 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI知识库</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+// 内嵌 Supabase 客户端（不依赖外部CDN）
+var sb = {
+  _url: '', _key: '',
+  init: function(url, key) { this._url = url; this._key = key; },
+  _fetch: function(path, opts) {
+    opts = opts || {};
+    opts.headers = opts.headers || {};
+    opts.headers['apikey'] = this._key;
+    if (!opts.headers['Content-Type'] && opts.body) opts.headers['Content-Type'] = 'application/json';
+    if (sb._token) opts.headers['Authorization'] = 'Bearer ' + sb._token;
+    return fetch(this._url + path, opts).then(function(r) { return r.json().then(function(d) { return { data: d, error: r.ok ? null : d, status: r.status }; }); });
+  },
+  auth: {
+    signInWithPassword: function(p) { return sb._fetch('/auth/v1/token?grant_type=password', { method: 'POST', body: JSON.stringify(p) }).then(function(r) { if (!r.error) { sb._token = r.data.access_token; sb._uid = r.data.user.id; } return r; }); },
+    signOut: function() { sb._token = null; sb._uid = null; }
+  },
+  from: function(table) {
+    var _t = table, _q = '', _h = {};
+    return {
+      select: function(cols, opts) { _q = 'select=' + (cols||'*'); if (opts && opts.count) _h['Prefer'] = 'count=' + opts.count; return this; },
+      insert: function(data) { return sb._fetch('/rest/v1/' + _t, { method: 'POST', body: JSON.stringify(data), headers: _h }); },
+      update: function(data) { _h['Prefer'] = 'return=minimal'; var filter = _q; _q = ''; return sb._fetch('/rest/v1/' + _t + '?' + filter, { method: 'PATCH', body: JSON.stringify(data), headers: _h }); },
+      delete: function() { _h['Prefer'] = 'return=minimal'; var filter = _q; _q = ''; return sb._fetch('/rest/v1/' + _t + '?' + filter, { method: 'DELETE', headers: _h }); },
+      upsert: function(data, opts) { _h['Prefer'] = 'resolution=merge-duplicates'; var uq = (opts && opts.onConflict) ? '&on_conflict=' + opts.onConflict : ''; return sb._fetch('/rest/v1/' + _t + '?' + _q + uq, { method: 'POST', body: JSON.stringify(data), headers: _h }); },
+      eq: function(col, val) { _q += (_q?'&':'') + col + '=eq.' + encodeURIComponent(val); return this; },
+      order: function(col, opts) { _q += (_q?'&':'') + 'order=' + col + '.' + ((opts&&opts.ascending===false)?'desc':'asc'); return this; },
+      limit: function(n) { _q += (_q?'&':'') + 'limit=' + n; return this; },
+      single: function() { _h['Accept'] = 'application/vnd.pgrst.object+json'; return this; },
+      then: function(resolve) { return sb._fetch('/rest/v1/' + _t + '?' + _q, { headers: _h }).then(resolve); }
+    };
+  },
+  rpc: function(fn, params) { return sb._fetch('/rest/v1/rpc/' + fn, { method: 'POST', body: JSON.stringify(params) }); },
+  _token: null, _uid: null
+};
+</script>
 <style>
 :root {
   --bg: #09090b; --surface: #131318; --card: #1a1a24;
@@ -295,7 +330,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans SC
 var SUPABASE_URL = 'https://smmcayeiecgbbgklpibh.supabase.co';
 var SUPABASE_ANON_KEY = 'sb_publishable_Uu0pkURMecr9_eSs5i1O6Q_QoSuRhA2';
 
-var sb = null;
 var currentUser = null;
 var currentRole = null;
 var currentUid = null;
@@ -316,11 +350,8 @@ var modelPresets = {
 function init() {
   if (SUPABASE_URL.indexOf('YOUR_PROJECT') === 0) {
     document.getElementById('configBanner').style.display = 'block';
-  } else if (typeof supabase === 'undefined') {
-    document.getElementById('configBanner').innerHTML = '⚠ Supabase SDK 加载失败，请检查网络或刷新重试';
-    document.getElementById('configBanner').style.display = 'block';
   } else {
-    sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    sb.init(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
 }
 
@@ -330,7 +361,7 @@ window.toggleSidebar = function() { document.getElementById('sidebar').classList
 
 // ====== Login ======
 window.doLogin = function() {
-  if (!sb) { document.getElementById('loginErr').textContent = '连接未就绪，请刷新页面'; document.getElementById('loginErr').style.display = 'block'; return; }
+  if (!sb._url) { document.getElementById('loginErr').textContent = '连接未就绪，请刷新页面'; document.getElementById('loginErr').style.display = 'block'; return; }
   var u = document.getElementById('loginUser').value.trim();
   var p = document.getElementById('loginPass').value.trim();
   if (!u || !p) return;
