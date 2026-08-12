@@ -273,9 +273,11 @@ body {
 
 /* Auth modal */
 .auth-list { max-height: 360px; overflow-y: auto; }
-.auth-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; transition: background 0.1s; }
+.auth-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-radius: 8px; cursor: pointer; margin-bottom: 4px; transition: background 0.1s; }
 .auth-row:hover { background: rgba(255,255,255,0.03); }
-.auth-row input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; }
+.auth-row input[type=checkbox] { accent-color: var(--accent); width: 16px; height: 16px; flex-shrink: 0; }
+.auth-row .auth-name { flex: 1; font-size: 13px; }
+.auth-row .auth-role { font-size: 11px; color: var(--muted); }
 
 /* Toast */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text); font-size: 13px; z-index: 200; animation: toastIn 0.3s ease; box-shadow: var(--shadow); font-weight: 500; }
@@ -653,7 +655,7 @@ window.openAuthModal = function(uname) {
     api('GET', '/rest/v1/profiles?select=username,role').then(function(ur) {
       var users = (ur.data||[]).filter(function(u){return u.username!==uname;});
       document.getElementById('authUserList').innerHTML = users.map(function(u) {
-        return '<label class="auth-row"><input type="checkbox" data-username="'+esc(u.username)+'" '+(viewerNames.indexOf(u.username)!==-1?'checked':'')+'><span>'+esc(u.username)+'</span><span style="color:var(--muted);font-size:11px;margin-left:auto;">'+u.role+'</span></label>';
+        return '<label class="auth-row"><input type="checkbox" data-username="'+esc(u.username)+'" '+(viewerNames.indexOf(u.username)!==-1?'checked':'')+'><span class="auth-name">'+esc(u.username)+'</span><span class="auth-role">'+u.role+'</span></label>';
       }).join('');
       window._authOwner = uname;
       document.getElementById('authOverlay').classList.add('show');
@@ -664,9 +666,12 @@ window.closeAuthModal = function() { document.getElementById('authOverlay').clas
 window.saveAuth = function() {
   var owner = window._authOwner;
   var checks = document.querySelectorAll('#authUserList input[type=checkbox]');
-  var promises = [];
-  checks.forEach(function(cb) { promises.push(api('POST', '/rest/v1/rpc/grant_kb_access', { owner_username: owner, viewer_username: cb.dataset.username })); });
-  Promise.all(promises).then(function() { closeAuthModal(); toast('授权已更新'); });
+  var selected = [];
+  checks.forEach(function(cb) { if (cb.checked) selected.push(cb.dataset.username); });
+  api('POST', '/rest/v1/rpc/save_kb_permissions', { owner_username: owner, viewer_usernames: selected }).then(function(r) {
+    if (!r.ok || (r.data||{}).error) { toast('保存失败'); return; }
+    closeAuthModal(); toast('授权已更新');
+  });
 };
 
 // ===== User CRUD =====
