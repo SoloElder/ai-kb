@@ -680,7 +680,7 @@ window.createUser = function() {
   var pwd = document.getElementById('newPassword').value.trim();
   if (!uname||!pwd) { toast('请填写用户名和密码'); return; }
   api('POST', '/rest/v1/rpc/create_app_user', { username: uname, password: pwd }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('创建失败: ' + ((r.data||{}).error || r.data || r.error || '未知错误')); return; }
+    if (!r.ok || (r.data||{}).error) { toast('创建失败: ' + (JSON.stringify((r.data||{}).error || r.data || r.error))); return; }
     closeCreateUserModal(); loadUserTable(); toast('用户 ' + uname + ' 已创建');
   });
 };
