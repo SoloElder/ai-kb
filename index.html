@@ -496,6 +496,8 @@ window.handleLogin = function() {
 };
 
 function showApp() {
+  localStorage.setItem('kb_session', JSON.stringify(session));
+  localStorage.setItem('kb_user', JSON.stringify({ username: currentUser, role: currentRole }));
   document.getElementById('loginPage').style.display = 'none';
   document.getElementById('app').classList.add('active');
   document.getElementById('displayName').textContent = currentUser;
@@ -512,6 +514,8 @@ function showApp() {
 
 window.doLogout = function() {
   session = null; currentUser = null; currentRole = 'user';
+  localStorage.removeItem('kb_session');
+  localStorage.removeItem('kb_user');
   document.getElementById('app').classList.remove('active');
   document.getElementById('loginPage').style.display = 'flex';
 };
@@ -804,6 +808,21 @@ document.getElementById('pwdOverlay').addEventListener('click',function(e){if(e.
 document.getElementById('adminViewOverlay').addEventListener('click',function(e){if(e.target===this)closeAdminView();});
 document.getElementById('authOverlay').addEventListener('click',function(e){if(e.target===this)closeAuthModal();});
 document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')handleLogin();});
+
+// 自动恢复登录
+(function() {
+  var saved = localStorage.getItem('kb_session');
+  if (!saved) return;
+  try { session = JSON.parse(saved); } catch(e) { return; }
+  if (!session || !session.access_token) return;
+  var userInfo = localStorage.getItem('kb_user');
+  if (userInfo) try { var ui = JSON.parse(userInfo); currentUser = ui.username; currentRole = ui.role; } catch(e) {}
+  api('GET', '/auth/v1/user').then(function(r) {
+    if (r.ok) { showApp(); return; }
+    localStorage.removeItem('kb_session');
+    localStorage.removeItem('kb_user');
+  });
+})();
 </script>
 </body>
 </html>
