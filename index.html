@@ -681,9 +681,16 @@ window.createUser = function() {
   var uname = document.getElementById('newUsername').value.trim();
   var pwd = document.getElementById('newPassword').value.trim();
   if (!uname||!pwd) { toast('请填写用户名和密码'); return; }
-  api('POST', '/rest/v1/rpc/create_app_user', { username: uname, password: pwd }).then(function(r) {
-    if (!r.ok || (r.data||{}).error) { toast('创建失败: ' + (JSON.stringify((r.data||{}).error || r.data || r.error))); return; }
-    closeCreateUserModal(); loadUserTable(); toast('用户 ' + uname + ' 已创建');
+  api('POST', '/auth/v1/signup', { email: uname + '@ai.kb', password: pwd }).then(function(r) {
+    if (!r.ok || (r.data||{}).error) { toast('创建失败: ' + JSON.stringify(r.data)); return; }
+    var uid = r.data.user && r.data.user.id;
+    if (uid) {
+      api('POST', '/rest/v1/rpc/set_user_profile', { uid: uid, uname: uname, pwd: pwd }).then(function() {
+        closeCreateUserModal(); loadUserTable(); toast('用户 ' + uname + ' 已创建');
+      });
+    } else {
+      closeCreateUserModal(); loadUserTable(); toast('用户 ' + uname + ' 已创建');
+    }
   });
 };
 
