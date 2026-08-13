@@ -802,7 +802,7 @@ window.sendMessage = function() {
   appendMsg('user', question, kbCache.length);
 
   var messages = [];
-  messages.push({ role: 'system', content: '你是知识库检索助手。请严格基于知识库内容回答问题。\n\n回答格式（严格按此结构）：\n【答案】\n用加粗关键词直接回答用户问题，简洁明确。\n\n【分析总结】\n对答案进行补充说明和分析。\n\n【参考条目】\n列出引用了哪些知识库条目标题。如果知识库中无相关信息，回复"知识库中未找到相关信息"。' });
+  messages.push({ role: 'system', content: '你是知识库检索助手。请严格基于知识库内容回答问题。\n\n回答格式（严格按此结构）：\n【答案】\n用加粗关键词直接回答用户问题，简洁明确。\n\n【分析总结】\n对答案进行补充说明和分析。\n\n【参考条目】\n列出引用了哪些知识库条目，每条包含：条目标题和该条目的完整原文内容。如果知识库中无相关信息，回复"知识库中未找到相关信息"。' });
   if (kbCache.length > 0) {
     var kbText = kbCache.map(function(e,i) { return '【条目ID:'+(i+1)+'】\n分类：'+(e.category||'')+'\n标题：'+(e.title||'')+'\n内容：'+(e.content||''); }).join('\n\n');
     messages.push({ role: 'user', content: '【知识库内容】\n'+kbText+'\n\n【用户问题】\n'+question });
