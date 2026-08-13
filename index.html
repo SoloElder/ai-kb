@@ -458,6 +458,7 @@ body {
         <div class="meeting-toolbar">
           <input type="text" id="meetingTitle" placeholder="会议主题（可选）">
           <button class="btn-rec" id="btnRec" onclick="toggleRecording()">🎙️ 开始录音</button>
+          <button class="btn-sm" id="btnSpeaker" onclick="nextSpeaker()">🔄 切换发言人</button>
         </div>
         <div class="meeting-status" id="meetingStatus">点击「开始录音」，边说边实时出文字（浏览器内置识别，免费无限次）</div>
         <div class="meeting-list" id="meetingList"></div>
@@ -851,14 +852,46 @@ window.changePassword = function() {
 // ===== Meeting =====
 var currentMeetingId = null;
 var speechRec = null, liveTranscript = '', isRecording = false, recTimer = null, recSeconds = 0;
+var speakerIdx = 1, lastSpeechTime = 0, restartTimer = null, silentCtx = null;
 
 function saveMeeting(title, transcript) {
   api('POST', '/rest/v1/meetings', { id: 'mt_' + Date.now(), user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
     if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
     document.getElementById('meetingTitle').value = '';
-    document.getElementById('meetingStatus').textContent = '转写完成，已保存。点击记录可查看并 AI 分析';
+    document.getElementById('meetingStatus').textContent = '已保存。点击记录可查看并 AI 分析';
     loadMeetings();
   });
+}
+
+function speakerLabel() { return '【发言人' + speakerIdx + '】'; }
+
+function renderLive(interim) {
+  var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
+  document.getElementById('meetingStatus').innerHTML =
+    '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '　当前: 发言人' + speakerIdx + '（停顿3秒自动换人，也可手动切换）</span><br><br>' +
+    '<div style="color:var(--text2);font-size:13px;line-height:1.8;max-height:220px;overflow-y:auto;">' + esc(liveTranscript) + '<span style="color:var(--muted);">' + esc(interim || '') + '</span></div>';
+}
+
+function startSilentAudio() {
+  try {
+    silentCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var osc = silentCtx.createOscillator();
+    var gain = silentCtx.createGain();
+    gain.gain.value = 0.0001;
+    osc.connect(gain); gain.connect(silentCtx.destination);
+    osc.start();
+  } catch(e) { silentCtx = null; }
+}
+
+function stopSilentAudio() {
+  try { if (silentCtx) { silentCtx.close(); silentCtx = null; } } catch(e) {}
+}
+
+function startRecognition() {
+  if (!isRecording) return;
+  try { speechRec.start(); } catch(err) {
+    setTimeout(function() { if (isRecording) try { speechRec.start(); } catch(e2) {} }, 300);
+  }
 }
 
 window.toggleRecording = function() {
@@ -876,36 +909,63 @@ window.toggleRecording = function() {
   speechRec.interimResults = true;
   liveTranscript = '';
   recSeconds = 0;
+  speakerIdx = 1;
+  lastSpeechTime = Date.now();
   speechRec.onresult = function(e) {
     var finalText = '', interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
       else interim += e.results[i][0].transcript;
     }
-    if (finalText) liveTranscript += finalText;
-    var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
-    document.getElementById('meetingStatus').innerHTML =
-      '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '（实时识别，无需模型）</span><br><br>' +
-      '<div style="color:var(--text2);font-size:13px;line-height:1.8;max-height:200px;overflow-y:auto;">' + esc(liveTranscript) + '<span style="color:var(--muted);">' + esc(interim) + '</span></div>';
+    if (finalText) {
+      var now = Date.now();
+      if (liveTranscript !== '' && now - lastSpeechTime > 3000) speakerIdx++;
+      if (liveTranscript !== '') liveTranscript += '\n';
+      liveTranscript += speakerLabel() + ' ' + finalText;
+      lastSpeechTime = now;
+    }
+    renderLive(interim);
   };
   speechRec.onerror = function(e) {
-    if (e.error === 'no-speech') { document.getElementById('meetingStatus').textContent = '未检测到声音，继续聆听中...'; return; }
+    if (e.error === 'no-speech') { renderLive(''); startRecognition(); return; }
     if (e.error === 'aborted') return;
-    if (e.error === 'not-allowed') { document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝'; btn.disabled = false; btn.textContent = '🎙️ 开始录音'; btn.classList.remove('recording'); isRecording = false; return; }
-    document.getElementById('meetingStatus').textContent = '语音识别错误: ' + e.error + '，已尝试自动恢复...';
+    if (e.error === 'not-allowed') {
+      document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝';
+      btn.disabled = false; btn.textContent = '🎙️ 开始录音'; btn.classList.remove('recording'); isRecording = false; stopSilentAudio(); return;
+    }
+    if (e.error === 'network') { setTimeout(function() { if (isRecording) startRecognition(); }, 1000); return; }
+    renderLive('');
   };
   speechRec.onend = function() {
-    if (isRecording) { try { speechRec.start(); } catch(err) {} }
+    if (isRecording) startRecognition();
   };
   speechRec.start();
   isRecording = true;
+  startSilentAudio();
   btn.disabled = false; btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
   recTimer = setInterval(function() { recSeconds++; }, 1000);
+  restartTimer = setInterval(function() {
+    if (isRecording && speechRec) {
+      try { speechRec.stop(); } catch(e) {}
+      setTimeout(function() { if (isRecording) startRecognition(); }, 200);
+    }
+  }, 55000);
+};
+
+window.nextSpeaker = function() {
+  if (!isRecording) { toast('请先开始录音'); return; }
+  speakerIdx++;
+  lastSpeechTime = Date.now();
+  liveTranscript += '\n' + speakerLabel() + ' ';
+  renderLive('');
+  toast('已切换到发言人' + speakerIdx);
 };
 
 function stopRecording() {
   isRecording = false;
   if (recTimer) { clearInterval(recTimer); recTimer = null; }
+  if (restartTimer) { clearInterval(restartTimer); restartTimer = null; }
+  stopSilentAudio();
   var btn = document.getElementById('btnRec');
   btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
   try { if (speechRec) speechRec.stop(); } catch(e) {}
@@ -914,6 +974,16 @@ function stopRecording() {
   var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
   saveMeeting(title, text);
 }
+
+document.addEventListener('visibilitychange', function() {
+  if (!isRecording) return;
+  if (document.hidden) {
+    renderLive('');
+  } else {
+    renderLive('');
+    setTimeout(function() { if (isRecording && speechRec) { try { speechRec.stop(); } catch(e) {} setTimeout(function() { if (isRecording) startRecognition(); }, 300); } }, 500);
+  }
+});
 
 function loadMeetings() {
   document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 实时语音识别已就绪</span> 点击开始录音，边说边出文字，无需下载任何模型';
