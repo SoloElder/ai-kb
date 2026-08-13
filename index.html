@@ -911,6 +911,7 @@ function matchSpeaker(segPitch) {
 function speakerLabel() { return '【发言人' + speakerIdx + '】'; }
 
 function renderLive(interim) {
+  if (!isRecording) return;
   var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
   var mode = speakerProfiles.length > 0 ? '音色自动识别（已识别 ' + speakerProfiles.length + ' 个声音）' : '音色分析中...';
   document.getElementById('meetingStatus').innerHTML =
@@ -1073,6 +1074,7 @@ function stopRecording() {
   var btn = document.getElementById('btnRec');
   btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
   try { if (speechRec) speechRec.stop(); } catch(e) {}
+  document.getElementById('meetingStatus').innerHTML = '⏳ 正在保存录音...';
   var ext = (audioRecorder && audioRecorder.mimeType && audioRecorder.mimeType.indexOf('mp4') !== -1) ? 'm4a' : 'webm';
   var fname = 'meeting_' + new Date().getTime() + '.' + ext;
   if (audioRecorder && audioRecorder.state !== 'inactive') {
@@ -1082,8 +1084,8 @@ function stopRecording() {
     downloadAudio(fname, 'audio/webm');
   }
   var text = liveTranscript.trim();
-  if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
   var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
+  if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
   saveMeeting(title, text);
 }
 
@@ -1128,13 +1130,18 @@ function loadMeetings() {
     document.getElementById('meetingList').innerHTML = list.length === 0
       ? '<div class="sidebar-empty">暂无会议记录</div>'
       : list.map(function(m) {
-          return '<div class="meeting-card" onclick="openMeetingDetail(\'' + m.id + '\')">' +
+          return '<div class="meeting-card" data-mid="' + m.id + '">' +
             '<div class="mt-title">🎙️ ' + esc(m.title) + '</div>' +
             '<div class="mt-meta">' + esc((m.created_at||'').substring(0,16).replace('T',' ')) + (m.analysis ? ' · 已分析' : ' · 未分析') + '</div>' +
             '<div class="mt-preview">' + esc((m.transcript||'').substring(0,80)) + '</div></div>';
         }).join('');
   });
 }
+
+document.addEventListener('click', function(e) {
+  var card = e.target.closest('.meeting-card');
+  if (card && card.dataset.mid) openMeetingDetail(card.dataset.mid);
+});
 
 window.openMeetingDetail = function(id) {
   currentMeetingId = id;
