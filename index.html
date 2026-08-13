@@ -458,7 +458,6 @@ body {
         <div class="meeting-toolbar">
           <input type="text" id="meetingTitle" placeholder="会议主题（可选）">
           <button class="btn-rec" id="btnRec" onclick="toggleRecording()">🎙️ 开始录音</button>
-          <button class="btn-sm" id="btnSpeaker" onclick="nextSpeaker()">🔄 切换发言人</button>
         </div>
         <div class="meeting-status" id="meetingStatus">点击「开始录音」，边说边实时出文字（浏览器内置识别，免费无限次）</div>
         <div class="meeting-list" id="meetingList"></div>
@@ -856,6 +855,7 @@ var speakerIdx = 1, lastSpeechTime = 0, restartTimer = null, silentCtx = null;
 var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null, speakerProfiles = [];
 var pendingInterim = '', lastInterimTime = 0, interimTimer = null;
 var audioRecorder = null, audioChunks = [];
+var pendingDownload = null;
 
 function medianPitch(arr) {
   if (!arr || arr.length === 0) return 0;
@@ -1073,29 +1073,40 @@ function stopRecording() {
   var btn = document.getElementById('btnRec');
   btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
   try { if (speechRec) speechRec.stop(); } catch(e) {}
+  var ext = (audioRecorder && audioRecorder.mimeType && audioRecorder.mimeType.indexOf('mp4') !== -1) ? 'm4a' : 'webm';
+  var fname = 'meeting_' + new Date().getTime() + '.' + ext;
   if (audioRecorder && audioRecorder.state !== 'inactive') {
-    audioRecorder.onstop = function() {
-      var type = audioRecorder.mimeType || 'audio/webm';
-      var blob = new Blob(audioChunks, { type: type });
-      var ext = type.indexOf('mp4') !== -1 ? 'm4a' : 'webm';
-      var a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = '会议录音_' + new Date().toLocaleString().replace(/[/:]/g, '-') + '.' + ext;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    };
+    audioRecorder.onstop = function() { downloadAudio(fname, audioRecorder.mimeType || 'audio/webm'); };
     audioRecorder.stop();
   } else if (audioChunks.length > 0) {
-    var type = 'audio/webm';
-    var blob = new Blob(audioChunks, { type: type });
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = '会议录音_' + new Date().toLocaleString().replace(/[/:]/g, '-') + '.webm';
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    downloadAudio(fname, 'audio/webm');
   }
   var text = liveTranscript.trim();
   if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
   var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
   saveMeeting(title, text);
+}
+
+function downloadAudio(fname, type) {
+  if (audioChunks.length === 0) return;
+  var blob = new Blob(audioChunks, { type: type });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = fname;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  pendingDownload = { url: url, name: fname };
+  showDownloadLink();
+}
+
+function showDownloadLink() {
+  var st = document.getElementById('meetingStatus');
+  if (st && pendingDownload) {
+    st.innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存，录音文件已开始下载</span>（' + pendingDownload.name + '）<br>' +
+      '<a href="' + pendingDownload.url + '" download="' + pendingDownload.name + '" style="color:var(--accent);">如未自动下载，点击此处手动下载</a>';
+  }
 }
 
 document.addEventListener('visibilitychange', function() {
@@ -1109,7 +1120,9 @@ document.addEventListener('visibilitychange', function() {
 });
 
 function loadMeetings() {
-  document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 实时语音识别已就绪</span> 点击开始录音，边说边出文字，无需下载任何模型';
+  if (pendingDownload) { showDownloadLink(); } else {
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 实时语音识别已就绪</span> 点击开始录音，边说边出文字，无需下载任何模型';
+  }
   api('GET', '/rest/v1/meetings?select=*&user_id=eq.' + encodeURIComponent(session.user.id) + '&order=created_at.desc').then(function(r) {
     var list = (r.ok && r.data) ? r.data : [];
     document.getElementById('meetingList').innerHTML = list.length === 0
@@ -1127,7 +1140,7 @@ window.openMeetingDetail = function(id) {
   currentMeetingId = id;
   api('GET', '/rest/v1/meetings?select=*&id=eq.' + encodeURIComponent(id)).then(function(r) {
     var m = (r.ok && r.data && r.data[0]) ? r.data[0] : null;
-    if (!m) return;
+    if (!m) { toast('会议记录加载失败'); return; }
     document.getElementById('meetingDetailTitle').textContent = m.title;
     var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:11px;color:var(--muted);">转写内容</span><button class="btn-sm" onclick="copySectionText(\'meetingTranscript\')">复制</button></div>' +
       '<div id="meetingTranscript" style="margin-bottom:6px;">' + esc(m.transcript) + '</div>';
@@ -1269,6 +1282,7 @@ document.getElementById('createUserOverlay').addEventListener('click',function(e
 document.getElementById('pwdOverlay').addEventListener('click',function(e){if(e.target===this)closePwdModal();});
 document.getElementById('adminViewOverlay').addEventListener('click',function(e){if(e.target===this)closeAdminView();});
 document.getElementById('authOverlay').addEventListener('click',function(e){if(e.target===this)closeAuthModal();});
+document.getElementById('meetingDetailOverlay').addEventListener('click',function(e){if(e.target===this)closeMeetingDetail();});
 document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')handleLogin();});
 
 // 自动恢复登录
