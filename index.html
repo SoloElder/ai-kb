@@ -962,9 +962,9 @@ function loadWhisper() {
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    env.remoteHost = 'https://raw.githubusercontent.com';
-    env.remotePathTemplate = 'SoloElder/ai-kb/master/models/{model}/{file}';
-    var lastPct = 0, tickTimer = null;
+    env.remoteHost = 'https://soloelder.github.io';
+    env.remotePathTemplate = 'ai-kb/models/{model}/{file}';
+    var lastPct = 0, tickTimer = null, lastEvent = Date.now(), watchdog = null;
     function fmtMB(b) { return b == null ? '' : (b / 1048576).toFixed(1) + 'MB'; }
     function render(msg, pct, indeterminate) {
       var el = document.getElementById('meetingStatus');
@@ -977,25 +977,29 @@ function loadWhisper() {
       }
       el.innerHTML = '⏳ ' + msg + '<br><div style="margin-top:8px;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;">' + barHtml + '</div>';
     }
-    function startTick() {
-      if (tickTimer) return;
-      tickTimer = setInterval(function() {
-        if (lastPct < 90) { lastPct += 1; render('正在下载模型文件 ' + lastPct + '%...', lastPct, false); }
-      }, 800);
+    function stopTimers() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } if (watchdog) { clearInterval(watchdog); watchdog = null; } }
+    function startWatchdog() {
+      if (watchdog) return;
+      watchdog = setInterval(function() {
+        var silent = Date.now() - lastEvent;
+        if (silent > 8000 && lastPct >= 95) {
+          render('文件已下载完成，正在加载模型到内存（这一步约需 30-60 秒，请勿关闭页面）...', 100, true);
+        }
+      }, 2000);
     }
-    function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
     var opts = {
       progress_callback: function(p) {
         if (!p || !p.status) return;
+        lastEvent = Date.now();
         var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
         var file = p.file || '';
         var status = p.status;
-        var sizeStr = (p.loaded != null && p.total != null) ? ' (' + fmtMB(p.loaded) + ' / ' + fmtMB(p.total) + ')' : '';
-        if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startTick(); }
+        var sizeStr = (p.loaded != null && p.total != null) ? ' (' + fmtMB(p.loaded) + ' / ' + fmtMB(p.total) + ')' : (p.loaded != null ? ' (' + fmtMB(p.loaded) + ')' : '');
+        if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startWatchdog(); }
         else if (status === 'download') { render('开始下载 ' + file + '...', 0, true); }
         else if (status === 'progress') { lastPct = pct; render('正在下载 ' + file + ' ' + pct + '%' + sizeStr, pct, false); }
-        else if (status === 'done') { stopTick(); render('模型文件下载完成', 100, false); }
-        else if (status === 'ready') { stopTick(); render('正在加载模型到内存...', 100, false); }
+        else if (status === 'done') { lastPct = 100; render('模型文件下载完成，正在初始化...', 100, true); }
+        else if (status === 'ready') { stopTimers(); render('模型加载完成，正在转写...', 100, false); }
       }
     };
     return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).then(function(t) {
