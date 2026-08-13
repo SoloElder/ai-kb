@@ -910,6 +910,16 @@ function processRecording() {
   transcribeBlob(blob, type.indexOf('mp4') !== -1 ? 'audio.m4a' : 'audio.webm');
 }
 
+window.preloadModel = function() {
+  document.getElementById('meetingStatus').innerHTML = '⏳ 开始下载模型，请保持页面打开...';
+  loadWhisper().then(function() {
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 模型已就绪</span> 可以开始录音或上传音频了';
+    toast('模型下载完成');
+  }).catch(function(e) {
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);">模型下载失败</span><br>' + esc(e && e.message ? e.message : String(e));
+  });
+};
+
 window.handleAudioFile = function(input) {
   var f = input.files[0];
   if (!f) return;
@@ -954,6 +964,7 @@ function loadWhisper() {
     env.remoteHost = 'https://raw.githubusercontent.com';
     env.remotePathTemplate = 'SoloElder/ai-kb/master/models/{model}/{file}';
     var lastPct = 0, tickTimer = null;
+    function fmtMB(b) { return b == null ? '' : (b / 1048576).toFixed(1) + 'MB'; }
     function render(msg, pct, indeterminate) {
       var el = document.getElementById('meetingStatus');
       if (!el) return;
@@ -978,14 +989,18 @@ function loadWhisper() {
         var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
         var file = p.file || '';
         var status = p.status;
+        var sizeStr = (p.loaded != null && p.total != null) ? ' (' + fmtMB(p.loaded) + ' / ' + fmtMB(p.total) + ')' : '';
         if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startTick(); }
         else if (status === 'download') { render('开始下载 ' + file + '...', 0, true); }
-        else if (status === 'progress') { lastPct = pct; render('正在下载 ' + file + ' ' + pct + '%', pct, false); }
+        else if (status === 'progress') { lastPct = pct; render('正在下载 ' + file + ' ' + pct + '%' + sizeStr, pct, false); }
         else if (status === 'done') { stopTick(); render('模型文件下载完成', 100, false); }
         else if (status === 'ready') { stopTick(); render('正在加载模型到内存...', 100, false); }
       }
     };
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts);
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).then(function(t) {
+      try { localStorage.setItem('whisper_ready', '1'); } catch(e) {}
+      return t;
+    });
   }).catch(function(e) {
     whisperPromise = null;
     throw e;
@@ -994,6 +1009,14 @@ function loadWhisper() {
 }
 
 function loadMeetings() {
+  var isReady = false;
+  try { isReady = localStorage.getItem('whisper_ready') === '1'; } catch(e) {}
+  if (!isReady) {
+    document.getElementById('meetingStatus').innerHTML =
+      '<span style="color:var(--amber);font-weight:600;">首次使用需下载语音模型（约 80MB）</span><br>' +
+      '<span style="font-size:12px;color:var(--muted);">仅首次下载，之后浏览器缓存秒开。下载后才能录音转写。</span><br><br>' +
+      '<button class="btn-sm primary" onclick="preloadModel()">⬇️ 立即下载模型</button>';
+  }
   api('GET', '/rest/v1/meetings?select=*&user_id=eq.' + encodeURIComponent(session.user.id) + '&order=created_at.desc').then(function(r) {
     var list = (r.ok && r.data) ? r.data : [];
     document.getElementById('meetingList').innerHTML = list.length === 0
