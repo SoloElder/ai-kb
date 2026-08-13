@@ -309,6 +309,7 @@ body {
 .meeting-card .mt-actions { margin-top: 8px; display: flex; gap: 6px; }
 .meeting-detail-body { font-size: 13px; line-height: 1.8; color: var(--text2); white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
 .spk-tag { display: inline-block; font-weight: 700; margin-right: 4px; }
+@keyframes slideBar { 0% { transform: translateX(-100%); } 100% { transform: translateX(400%); } }
 
 /* ===== Mobile responsive ===== */
 .mobile-menu-btn { display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -917,7 +918,7 @@ window.handleAudioFile = function(input) {
 };
 
 function transcribeBlob(blob, filename) {
-  document.getElementById('meetingStatus').innerHTML = '⏳ 正在加载模型...<br><div style="margin-top:6px;height:4px;background:var(--surface);border-radius:2px;overflow:hidden;"><div id="transProgress" style="height:100%;width:2%;background:var(--accent);"></div></div>';
+  document.getElementById('meetingStatus').innerHTML = '⏳ 正在加载转写引擎...<br><div style="margin-top:8px;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;"><div style="height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:slideBar 1.2s linear infinite;"></div></div>';
   loadWhisper().then(function(transcriber) {
     document.getElementById('meetingStatus').textContent = '正在 AI 转写中，请耐心等待（本地处理，不上传）...';
     var url = URL.createObjectURL(blob);
@@ -950,31 +951,41 @@ function loadWhisper() {
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    env.remoteHost = 'https://huggingface.co';
+    env.remoteHost = 'https://raw.githubusercontent.com';
+    env.remotePathTemplate = 'SoloElder/ai-kb/master/models/{model}/{file}';
+    var lastPct = 0, tickTimer = null;
+    function render(msg, pct, indeterminate) {
+      var el = document.getElementById('meetingStatus');
+      if (!el) return;
+      var barHtml;
+      if (indeterminate) {
+        barHtml = '<div style="height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:slideBar 1.2s linear infinite;"></div>';
+      } else {
+        barHtml = '<div style="height:100%;width:' + pct + '%;background:var(--accent);transition:width 0.3s;"></div>';
+      }
+      el.innerHTML = '⏳ ' + msg + '<br><div style="margin-top:8px;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;">' + barHtml + '</div>';
+    }
+    function startTick() {
+      if (tickTimer) return;
+      tickTimer = setInterval(function() {
+        if (lastPct < 90) { lastPct += 1; render('正在下载模型文件 ' + lastPct + '%...', lastPct, false); }
+      }, 800);
+    }
+    function stopTick() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } }
     var opts = {
       progress_callback: function(p) {
         if (!p || !p.status) return;
         var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
         var file = p.file || '';
         var status = p.status;
-        var msg;
-        if (status === 'progress') msg = '正在下载模型 ' + file + ' ' + pct + '%';
-        else if (status === 'done') msg = '模型加载完成，开始转写...';
-        else if (status === 'ready') msg = '正在转写，请耐心等待（长音频较慢）...';
-        else msg = status + ' ' + (pct ? pct + '%' : '');
-        var el = document.getElementById('meetingStatus');
-        if (el) el.innerHTML = '⏳ ' + msg + '<br><div style="margin-top:6px;height:4px;background:var(--surface);border-radius:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent);transition:width 0.3s;"></div></div>';
+        if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startTick(); }
+        else if (status === 'download') { render('开始下载 ' + file + '...', 0, true); }
+        else if (status === 'progress') { lastPct = pct; render('正在下载 ' + file + ' ' + pct + '%', pct, false); }
+        else if (status === 'done') { stopTick(); render('模型文件下载完成', 100, false); }
+        else if (status === 'ready') { stopTick(); render('正在加载模型到内存...', 100, false); }
       }
     };
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).catch(function() {
-      env.remoteHost = 'https://corsproxy.io';
-      env.remotePathTemplate = '?url=https%3A%2F%2Fhf-mirror.com/{model}/resolve/{revision}';
-      return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).catch(function() {
-        env.remoteHost = 'https://api.allorigins.win';
-        env.remotePathTemplate = 'raw?url=https%3A%2F%2Fhf-mirror.com/{model}/resolve/{revision}';
-        return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts);
-      });
-    });
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts);
   }).catch(function(e) {
     whisperPromise = null;
     throw e;
