@@ -287,6 +287,37 @@ body {
 /* Toast */
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text); font-size: 13px; z-index: 200; animation: toastIn 0.3s ease; box-shadow: var(--shadow); font-weight: 500; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+/* ===== Mobile responsive ===== */
+.mobile-menu-btn { display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; align-items: center; justify-content: center; flex-shrink: 0; }
+.sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
+
+@media (max-width: 768px) {
+  .mobile-menu-btn { display: flex; }
+  .sidebar {
+    position: fixed; left: -280px; top: 52px; bottom: 0; width: 280px; z-index: 50;
+    transition: left 0.25s ease; overflow-y: auto; box-shadow: 4px 0 24px rgba(0,0,0,0.4);
+  }
+  .sidebar.open { left: 0; }
+  .sidebar-backdrop.show { display: block; }
+  .content-header { padding: 0 12px; height: 44px; }
+  .content-header .ch-title { font-size: 14px; }
+  .chat-area { padding: 16px 12px; }
+  .msg .msg-body { padding-left: 0; font-size: 13px; }
+  .msg .msg-head { margin-bottom: 4px; }
+  .chat-input-wrap { padding: 10px 12px 12px; }
+  .chat-input-box textarea { font-size: 16px; }
+  .user-panel { padding: 16px 12px; }
+  .user-table-wrap { overflow-x: auto; }
+  .user-table { min-width: 560px; font-size: 12px; }
+  .user-table th, .user-table td { padding: 8px 10px; }
+  .modal { width: 92% !important; padding: 20px 18px; }
+  .topbar { padding: 0 12px; }
+  .topbar .uname { display: none; }
+  .model-selector label { display: none; }
+  .login-card { width: 90%; padding: 28px 22px; }
+  .chat-welcome { padding-top: 48px; }
+}
 </style>
 </head>
 <body>
@@ -307,6 +338,7 @@ body {
 
 <div class="app" id="app">
   <div class="topbar">
+    <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="toggleMobileSidebar()">☰</button>
     <div class="logo"><div class="dot"></div>AI 知识库</div>
     <div class="right">
       <span class="badge" id="roleBadge"></span>
@@ -316,7 +348,9 @@ body {
     </div>
   </div>
 
-  <div class="app-body">
+  <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+
+<div class="app-body">
     <div class="sidebar" id="sidebar">
       <div class="sidebar-nav">
         <div class="nav-item active" data-panel="kb" onclick="switchSidePanel('kb')">
@@ -492,6 +526,16 @@ window.copySection = function(btn) {
 };
 function toast(msg) { var t = document.createElement('div'); t.className = 'toast'; t.textContent = msg; document.body.appendChild(t); setTimeout(function() { t.remove(); }, 2500); }
 
+// ===== Mobile sidebar =====
+window.toggleMobileSidebar = function() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('show');
+};
+window.closeMobileSidebar = function() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('show');
+};
+
 // ===== Login =====
 window.handleLogin = function() {
   var u = document.getElementById('loginUser').value.trim();
@@ -546,6 +590,7 @@ function addLog(action) {
 
 // ===== Sidebar =====
 window.switchSidePanel = function(panel) {
+  closeMobileSidebar();
   document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.toggle('active', n.dataset.panel === panel); });
   document.querySelectorAll('.sidebar-panel').forEach(function(p) { p.classList.toggle('active', p.id === 'panel-' + panel); });
   if (panel === 'users') {
