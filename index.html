@@ -1012,7 +1012,7 @@ function loadWhisper() {
       }
     };
     return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', opts).then(function(t) {
-      try { localStorage.setItem('whisper_ready', '1'); } catch(e) {}
+      setModelReady();
       return t;
     });
   }).catch(function(e) {
@@ -1025,6 +1025,17 @@ function loadWhisper() {
 function modelReady() {
   try { return localStorage.getItem('whisper_ready') === '1'; } catch(e) { return false; }
 }
+function setModelReady() {
+  try { localStorage.setItem('whisper_ready', '1'); } catch(e) {}
+}
+function checkWhisperCache() {
+  if (!window.caches) return Promise.resolve(false);
+  return caches.open('transformers-cache').then(function(cache) {
+    return cache.match('https://smmcayeiecgbbgklpibh.supabase.co/storage/v1/object/public/models/Xenova/whisper-tiny/onnx/decoder_model_merged_quantized.onnx').then(function(resp) {
+      return !!resp;
+    });
+  }).catch(function() { return false; });
+}
 function updateMeetingBtns() {
   var ready = modelReady();
   var r = document.getElementById('btnRec');
@@ -1035,12 +1046,23 @@ function updateMeetingBtns() {
 
 function loadMeetings() {
   updateMeetingBtns();
-  var isReady = modelReady();
-  if (!isReady) {
+  if (modelReady()) {
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 语音模型已就绪</span> 可直接录音或上传音频';
+  } else {
     document.getElementById('meetingStatus').innerHTML =
-      '<span style="color:var(--amber);font-weight:600;">首次使用需下载语音模型（约 43MB）</span><br>' +
-      '<span style="font-size:12px;color:var(--muted);">仅首次下载，之后浏览器缓存秒开。下载后才能录音转写。</span><br><br>' +
-      '<button class="btn-sm primary" onclick="preloadModel()">⬇️ 立即下载模型</button>';
+      '<span style="color:var(--amber);font-weight:600;">正在检查本地缓存...</span>';
+    checkWhisperCache().then(function(cached) {
+      if (cached) {
+        setModelReady();
+        updateMeetingBtns();
+        document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 检测到本地已有模型缓存</span> 已自动跳过下载，可直接使用';
+      } else {
+        document.getElementById('meetingStatus').innerHTML =
+          '<span style="color:var(--amber);font-weight:600;">首次使用需下载语音模型（约 44MB）</span><br>' +
+          '<span style="font-size:12px;color:var(--muted);">仅首次下载，之后浏览器缓存自动跳过。下载后才能录音转写。</span><br><br>' +
+          '<button class="btn-sm primary" onclick="preloadModel()">⬇️ 立即下载模型</button>';
+      }
+    });
   }
   api('GET', '/rest/v1/meetings?select=*&user_id=eq.' + encodeURIComponent(session.user.id) + '&order=created_at.desc').then(function(r) {
     var list = (r.ok && r.data) ? r.data : [];
