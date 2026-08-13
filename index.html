@@ -917,6 +917,7 @@ window.handleAudioFile = function(input) {
 };
 
 function transcribeBlob(blob, filename) {
+  document.getElementById('meetingStatus').innerHTML = '⏳ 正在加载模型...<br><div style="margin-top:6px;height:4px;background:var(--surface);border-radius:2px;overflow:hidden;"><div id="transProgress" style="height:100%;width:2%;background:var(--accent);"></div></div>';
   loadWhisper().then(function(transcriber) {
     document.getElementById('meetingStatus').textContent = '正在 AI 转写中，请耐心等待（本地处理，不上传）...';
     var url = URL.createObjectURL(blob);
@@ -928,7 +929,8 @@ function transcribeBlob(blob, filename) {
       saveMeeting(title, text);
     });
   }).catch(function(e) {
-    document.getElementById('meetingStatus').textContent = '转写失败: ' + e.message;
+    var msg = e && e.message ? e.message : String(e);
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);">转写失败</span><br>' + esc(msg) + '<br><span style="font-size:11px;color:var(--muted);">提示：首次使用需下载约140MB模型，请确保网络可访问 huggingface.co 或 hf-mirror.com</span>';
   });
 }
 
