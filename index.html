@@ -948,8 +948,8 @@ function loadWhisper() {
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    env.remoteHost = 'https://hf-mirror.com';
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
+    env.remoteHost = 'https://huggingface.co';
+    var opts = {
       progress_callback: function(p) {
         if (!p || !p.status) return;
         var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
@@ -963,6 +963,11 @@ function loadWhisper() {
         var el = document.getElementById('meetingStatus');
         if (el) el.innerHTML = '⏳ ' + msg + '<br><div style="margin-top:6px;height:4px;background:var(--surface);border-radius:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent);transition:width 0.3s;"></div></div>';
       }
+    };
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).catch(function() {
+      env.remoteHost = 'https://corsproxy.io';
+      env.remotePathTemplate = '?url=https://hf-mirror.com/{model}/resolve/{revision}/{file}';
+      return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts);
     });
   }).catch(function(e) {
     whisperPromise = null;
