@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -457,11 +457,9 @@ body {
         </div>
         <div class="meeting-toolbar">
           <input type="text" id="meetingTitle" placeholder="会议主题（可选）">
-          <button class="btn-rec" id="btnRec" onclick="toggleRecording()" disabled style="opacity:0.5;">🎙️ 开始录音</button>
-          <button class="btn-sm" id="btnUpload" onclick="document.getElementById('meetingFile').click()" disabled>📁 上传音频</button>
-          <input type="file" id="meetingFile" accept="audio/*" style="display:none;" onchange="handleAudioFile(this)">
+          <button class="btn-rec" id="btnRec" onclick="toggleRecording()">🎙️ 开始录音</button>
         </div>
-        <div class="meeting-status" id="meetingStatus">点击「开始录音」录制会议，或上传 mp3/wav 音频文件</div>
+        <div class="meeting-status" id="meetingStatus">点击「开始录音」，边说边实时出文字（浏览器内置识别，免费无限次）</div>
         <div class="meeting-list" id="meetingList"></div>
       </div>
 
@@ -852,7 +850,7 @@ window.changePassword = function() {
 
 // ===== Meeting =====
 var currentMeetingId = null;
-var mediaRecorder = null, audioChunks = [], isRecording = false, recTimer = null, recSeconds = 0;
+var speechRec = null, liveTranscript = '', isRecording = false, recTimer = null, recSeconds = 0;
 
 function saveMeeting(title, transcript) {
   api('POST', '/rest/v1/meetings', { id: 'mt_' + Date.now(), user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
@@ -865,205 +863,60 @@ function saveMeeting(title, transcript) {
 
 window.toggleRecording = function() {
   if (isRecording) { stopRecording(); return; }
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('meetingStatus').innerHTML = '当前浏览器不支持实时语音识别，请使用 Chrome 或 Edge 浏览器';
+    return;
+  }
   var btn = document.getElementById('btnRec');
   btn.textContent = '请求麦克风权限...'; btn.disabled = true;
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-    var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
-             : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
-    mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
-    audioChunks = [];
-    mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = function() {
-      stream.getTracks().forEach(function(t) { t.stop(); });
-      processRecording();
-    };
-    mediaRecorder.start(1000);
-    isRecording = true;
-    recSeconds = 0;
-    btn.disabled = false; btn.textContent = '⏹ 停止并转写'; btn.classList.add('recording');
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中 00:00</span> 完整录制会议声音，停止后本地 AI 转写';
-    recTimer = setInterval(function() {
-      recSeconds++;
-      var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
-      document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '</span> 完整录制会议声音，停止后本地 AI 转写';
-    }, 1000);
-  }).catch(function(err) {
-    btn.disabled = false; btn.textContent = '🎙️ 开始录音';
-    document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝或不可用：' + err.message;
-  });
+  speechRec = new SR();
+  speechRec.lang = 'zh-CN';
+  speechRec.continuous = true;
+  speechRec.interimResults = true;
+  liveTranscript = '';
+  recSeconds = 0;
+  speechRec.onresult = function(e) {
+    var finalText = '', interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (finalText) liveTranscript += finalText;
+    var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
+    document.getElementById('meetingStatus').innerHTML =
+      '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '（实时识别，无需模型）</span><br><br>' +
+      '<div style="color:var(--text2);font-size:13px;line-height:1.8;max-height:200px;overflow-y:auto;">' + esc(liveTranscript) + '<span style="color:var(--muted);">' + esc(interim) + '</span></div>';
+  };
+  speechRec.onerror = function(e) {
+    if (e.error === 'no-speech') { document.getElementById('meetingStatus').textContent = '未检测到声音，继续聆听中...'; return; }
+    if (e.error === 'aborted') return;
+    if (e.error === 'not-allowed') { document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝'; btn.disabled = false; btn.textContent = '🎙️ 开始录音'; btn.classList.remove('recording'); isRecording = false; return; }
+    document.getElementById('meetingStatus').textContent = '语音识别错误: ' + e.error + '，已尝试自动恢复...';
+  };
+  speechRec.onend = function() {
+    if (isRecording) { try { speechRec.start(); } catch(err) {} }
+  };
+  speechRec.start();
+  isRecording = true;
+  btn.disabled = false; btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
+  recTimer = setInterval(function() { recSeconds++; }, 1000);
 };
 
 function stopRecording() {
   isRecording = false;
   if (recTimer) { clearInterval(recTimer); recTimer = null; }
   var btn = document.getElementById('btnRec');
-  btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音'; btn.disabled = true;
-  document.getElementById('meetingStatus').textContent = '正在转写录音...';
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-}
-
-function processRecording() {
-  var btn = document.getElementById('btnRec'); btn.disabled = false;
-  if (audioChunks.length === 0) { document.getElementById('meetingStatus').textContent = '录音内容为空'; return; }
-  var type = mediaRecorder.mimeType || 'audio/webm';
-  var blob = new Blob(audioChunks, { type: type });
-  transcribeBlob(blob, type.indexOf('mp4') !== -1 ? 'audio.m4a' : 'audio.webm');
-}
-
-window.preloadModel = function() {
-  document.getElementById('meetingStatus').innerHTML = '⏳ 开始下载模型，请保持页面打开...';
-  loadWhisper().then(function() {
-    updateMeetingBtns();
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 模型已就绪</span> 可以开始录音或上传音频了';
-    toast('模型下载完成');
-  }).catch(function(e) {
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);">模型下载失败</span><br>' + esc(e && e.message ? e.message : String(e));
-  });
-};
-
-window.handleAudioFile = function(input) {
-  var f = input.files[0];
-  if (!f) return;
-  document.getElementById('meetingStatus').textContent = '正在转写 ' + f.name + ' ...';
-  transcribeBlob(f, f.name);
-};
-
-function transcribeBlob(blob, filename) {
-  document.getElementById('meetingStatus').innerHTML = '⏳ 正在加载转写引擎...<br><div style="margin-top:8px;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;"><div style="height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:slideBar 1.2s linear infinite;"></div></div>';
-  loadWhisper().then(function(transcriber) {
-    document.getElementById('meetingStatus').textContent = '正在 AI 转写中，请耐心等待（本地处理，不上传）...';
-    var url = URL.createObjectURL(blob);
-    return transcriber(url, { language: 'chinese', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 }).then(function(out) {
-      URL.revokeObjectURL(url);
-      var text = out && out.text ? out.text.trim() : '';
-      if (!text) { document.getElementById('meetingStatus').textContent = '未识别到语音内容'; return; }
-      var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
-      saveMeeting(title, text);
-    });
-  }).catch(function(e) {
-    var msg = e && e.message ? e.message : String(e);
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);">转写失败</span><br>' + esc(msg) + '<br><span style="font-size:11px;color:var(--muted);">提示：首次使用需下载约140MB模型，请确保网络可访问 huggingface.co 或 hf-mirror.com</span>';
-  });
-}
-
-var whisperPromise = null;
-function loadWhisper() {
-  if (whisperPromise) return whisperPromise;
-  var urls = [
-    'https://registry.npmmirror.com/@xenova/transformers/2.17.2/files/dist/transformers.js',
-    'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.js',
-    'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.js'
-  ];
-  function tryImport(i) {
-    if (i >= urls.length) return Promise.reject(new Error('模型库加载失败，请检查网络'));
-    return import(urls[i]).catch(function() { return tryImport(i + 1); });
-  }
-  whisperPromise = tryImport(0).then(function(m) {
-    var env = m.env;
-    env.allowLocalModels = false;
-    env.useBrowserCache = true;
-    env.remoteHost = 'https://smmcayeiecgbbgklpibh.supabase.co';
-    env.remotePathTemplate = 'storage/v1/object/public/models/{model}';
-    var lastPct = 0, tickTimer = null, lastEvent = Date.now(), watchdog = null, fileLoadedMap = {};
-    function fmtMB(b) { return b == null ? '' : (b / 1048576).toFixed(1) + 'MB'; }
-    function render(msg, pct, indeterminate) {
-      var el = document.getElementById('meetingStatus');
-      if (!el) return;
-      var barHtml;
-      if (indeterminate) {
-        barHtml = '<div style="height:100%;width:30%;background:linear-gradient(90deg,transparent,var(--accent),transparent);animation:slideBar 1.2s linear infinite;"></div>';
-      } else {
-        barHtml = '<div style="height:100%;width:' + pct + '%;background:var(--accent);transition:width 0.3s;"></div>';
-      }
-      el.innerHTML = '⏳ ' + msg + '<br><div style="margin-top:8px;height:5px;background:var(--surface);border-radius:3px;overflow:hidden;">' + barHtml + '</div>';
-    }
-    function stopTimers() { if (tickTimer) { clearInterval(tickTimer); tickTimer = null; } if (watchdog) { clearInterval(watchdog); watchdog = null; } }
-    function startWatchdog() {
-      if (watchdog) return;
-      watchdog = setInterval(function() {
-        var silent = Date.now() - lastEvent;
-        if (silent > 8000 && lastPct >= 95) {
-          render('文件已下载完成，正在加载模型到内存（这一步约需 30-60 秒，请勿关闭页面）...', 100, true);
-        }
-      }, 2000);
-    }
-    var opts = {
-      progress_callback: function(p) {
-        if (!p || !p.status) return;
-        lastEvent = Date.now();
-        var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
-        var file = p.file || '';
-        var status = p.status;
-        var TOTAL_MB = 44;
-        if (p.loaded != null) { fileLoadedMap[file] = p.loaded; }
-        var cumulative = 0;
-        for (var k in fileLoadedMap) { cumulative += fileLoadedMap[k]; }
-        var cumMB = (cumulative / 1048576).toFixed(1);
-        var remainMB = Math.max(0, TOTAL_MB - cumulative / 1048576).toFixed(1);
-        var overallPct = Math.min(100, Math.round(cumulative / 1048576 / TOTAL_MB * 100));
-        if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startWatchdog(); }
-        else if (status === 'download') { render('开始下载 ' + file + '...', 0, true); }
-        else if (status === 'progress') {
-          lastPct = overallPct;
-          render('正在下载 ' + file + ' ' + pct + '%　|　总进度：已下载 ' + cumMB + 'MB / 共 ' + TOTAL_MB + 'MB（剩余 ' + remainMB + 'MB）', overallPct, false);
-        }
-        else if (status === 'done') { lastPct = 100; render('模型文件下载完成，正在初始化...', 100, true); }
-        else if (status === 'ready') { stopTimers(); render('模型加载完成，正在转写...', 100, false); }
-      }
-    };
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', opts).then(function(t) {
-      setModelReady();
-      return t;
-    });
-  }).catch(function(e) {
-    whisperPromise = null;
-    throw e;
-  });
-  return whisperPromise;
-}
-
-function modelReady() {
-  try { return localStorage.getItem('whisper_ready') === '1'; } catch(e) { return false; }
-}
-function setModelReady() {
-  try { localStorage.setItem('whisper_ready', '1'); } catch(e) {}
-}
-function checkWhisperCache() {
-  if (!window.caches) return Promise.resolve(false);
-  return caches.open('transformers-cache').then(function(cache) {
-    return cache.match('https://smmcayeiecgbbgklpibh.supabase.co/storage/v1/object/public/models/Xenova/whisper-tiny/onnx/decoder_model_merged_quantized.onnx').then(function(resp) {
-      return !!resp;
-    });
-  }).catch(function() { return false; });
-}
-function updateMeetingBtns() {
-  var ready = modelReady();
-  var r = document.getElementById('btnRec');
-  var u = document.getElementById('btnUpload');
-  if (r) { r.disabled = !ready; r.style.opacity = ready ? '1' : '0.5'; }
-  if (u) { u.disabled = !ready; u.style.opacity = ready ? '1' : '0.5'; }
+  btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
+  try { if (speechRec) speechRec.stop(); } catch(e) {}
+  var text = liveTranscript.trim();
+  if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
+  var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
+  saveMeeting(title, text);
 }
 
 function loadMeetings() {
-  updateMeetingBtns();
-  if (modelReady()) {
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 语音模型已就绪</span> 可直接录音或上传音频';
-  } else {
-    document.getElementById('meetingStatus').innerHTML =
-      '<span style="color:var(--amber);font-weight:600;">正在检查本地缓存...</span>';
-    checkWhisperCache().then(function(cached) {
-      if (cached) {
-        setModelReady();
-        updateMeetingBtns();
-        document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 检测到本地已有模型缓存</span> 已自动跳过下载，可直接使用';
-      } else {
-        document.getElementById('meetingStatus').innerHTML =
-          '<span style="color:var(--amber);font-weight:600;">首次使用需下载语音模型（约 44MB）</span><br>' +
-          '<span style="font-size:12px;color:var(--muted);">仅首次下载，之后浏览器缓存自动跳过。下载后才能录音转写。</span><br><br>' +
-          '<button class="btn-sm primary" onclick="preloadModel()">⬇️ 立即下载模型</button>';
-      }
-    });
-  }
+  document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 实时语音识别已就绪</span> 点击开始录音，边说边出文字，无需下载任何模型';
   api('GET', '/rest/v1/meetings?select=*&user_id=eq.' + encodeURIComponent(session.user.id) + '&order=created_at.desc').then(function(r) {
     var list = (r.ok && r.data) ? r.data : [];
     document.getElementById('meetingList').innerHTML = list.length === 0
