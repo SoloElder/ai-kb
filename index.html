@@ -857,6 +857,7 @@ var pendingInterim = '', lastInterimTime = 0, interimTimer = null;
 var audioRecorder = null, audioChunks = [];
 var pendingDownload = null;
 var lastMeeting = null;
+var lastAnalysis = null;
 
 function saveMeeting(title, transcript) {
   var mid = 'mt_' + Date.now();
@@ -881,18 +882,51 @@ function saveMeeting(title, transcript) {
 function showAnalysisInline(title, transcript, analysis) {
   var el = document.getElementById('meetingStatus');
   if (!el) return;
+  lastAnalysis = { title: title, transcript: transcript, analysis: analysis };
   var transcriptHtml = transcript.split('\n').map(function(line) {
     var m = line.match(/^(【发言人\d+】)\s*(.*)$/);
     if (m) return '<div style="margin:2px 0;"><span class="spk-tag" style="color:var(--accent);">' + esc(m[1]) + '</span>' + esc(m[2]) + '</div>';
     return '<div style="margin:2px 0;">' + esc(line) + '</div>';
   }).join('');
   el.innerHTML =
-    '<span style="color:var(--green);font-weight:600;">✅ 会议已保存并完成 AI 分析</span><br><br>' +
+    '<span style="color:var(--green);font-weight:600;">✅ 会议已保存并完成 AI 分析</span>　' +
+    '<button class="btn-sm primary" onclick="downloadMeetingDoc()">📄 下载 Word 文档</button><br><br>' +
     '<div style="max-height:50vh;overflow-y:auto;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px;">' +
     '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">会议主题：' + esc(title) + '</div>' +
     formatAnalysis(analysis) +
     '<div style="font-size:12px;color:var(--muted);margin:14px 0 8px;">📝 转写原文</div>' + transcriptHtml +
     '</div>';
+}
+
+window.downloadMeetingDoc = function() {
+  var d = lastAnalysis || lastMeeting;
+  if (!d) { toast('没有可下载的内容'); return; }
+  var bodyHtml =
+    '<h1>' + esc(d.title || '会议记录') + '</h1>' +
+    '<p style="color:#888;">时间：' + new Date().toLocaleString() + '</p>' +
+    '<h2>AI 分析</h2>' +
+    (d.analysis ? formatDocAnalysis(d.analysis) : '<p>未分析</p>') +
+    '<h2>会议转写原文</h2>' +
+    (d.transcript || '').split('\n').map(function(line) {
+      return '<p>' + esc(line) + '</p>';
+    }).join('');
+  var html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word"><head><meta charset="UTF-8"><style>body{font-family:Microsoft YaHei,SimSun,sans-serif;font-size:11pt;line-height:1.7;}h1{font-size:20pt;color:#333;}h2{font-size:15pt;color:#4F46E5;border-bottom:1px solid #ddd;padding-bottom:4px;margin-top:20px;}h3{font-size:12pt;color:#3730A3;}</style></head><body>' + bodyHtml + '</body></html>';
+  var blob = new Blob(['\uFEFF' + html], { type: 'application/msword;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (d.title || '会议记录') + '.doc';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  toast('Word 文档已下载');
+};
+
+function formatDocAnalysis(text) {
+  if (!text) return '';
+  return text
+    .replace(/【参会人员】/g, '<h3>参会人员</h3>')
+    .replace(/【讨论议题】/g, '<h3>讨论议题</h3>')
+    .replace(/【关键结论】/g, '<h3>关键结论</h3>')
+    .replace(/【待办事项】/g, '<h3>待办事项</h3>')
+    .split('\n').map(function(l) { return '<p>' + esc(l) + '</p>'; }).join('');
 }
 
 function medianPitch(arr) {
