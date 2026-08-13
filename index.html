@@ -966,8 +966,12 @@ function loadWhisper() {
     };
     return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).catch(function() {
       env.remoteHost = 'https://corsproxy.io';
-      env.remotePathTemplate = '?url=https://hf-mirror.com/{model}/resolve/{revision}/{file}';
-      return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts);
+      env.remotePathTemplate = '?url=https%3A%2F%2Fhf-mirror.com/{model}/resolve/{revision}';
+      return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).catch(function() {
+        env.remoteHost = 'https://api.allorigins.win';
+        env.remotePathTemplate = 'raw?url=https%3A%2F%2Fhf-mirror.com/{model}/resolve/{revision}';
+        return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts);
+      });
     });
   }).catch(function(e) {
     whisperPromise = null;
