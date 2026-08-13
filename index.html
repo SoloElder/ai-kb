@@ -964,7 +964,7 @@ function loadWhisper() {
     env.useBrowserCache = true;
     env.remoteHost = 'https://smmcayeiecgbbgklpibh.supabase.co';
     env.remotePathTemplate = 'storage/v1/object/public/models/{model}';
-    var lastPct = 0, tickTimer = null, lastEvent = Date.now(), watchdog = null;
+    var lastPct = 0, tickTimer = null, lastEvent = Date.now(), watchdog = null, fileLoadedMap = {};
     function fmtMB(b) { return b == null ? '' : (b / 1048576).toFixed(1) + 'MB'; }
     function render(msg, pct, indeterminate) {
       var el = document.getElementById('meetingStatus');
@@ -994,15 +994,18 @@ function loadWhisper() {
         var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
         var file = p.file || '';
         var status = p.status;
-        var sizeStr = (p.loaded != null && p.total != null) ? ' (' + fmtMB(p.loaded) + ' / ' + fmtMB(p.total) + ')' : (p.loaded != null ? ' (' + fmtMB(p.loaded) + ')' : '');
+        var TOTAL_MB = 44;
+        if (p.loaded != null) { fileLoadedMap[file] = p.loaded; }
+        var cumulative = 0;
+        for (var k in fileLoadedMap) { cumulative += fileLoadedMap[k]; }
+        var cumMB = (cumulative / 1048576).toFixed(1);
+        var remainMB = Math.max(0, TOTAL_MB - cumulative / 1048576).toFixed(1);
+        var overallPct = Math.min(100, Math.round(cumulative / 1048576 / TOTAL_MB * 100));
         if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startWatchdog(); }
         else if (status === 'download') { render('开始下载 ' + file + '...', 0, true); }
         else if (status === 'progress') {
-          lastPct = pct;
-          var doneMB = p.loaded != null ? (p.loaded / 1048576).toFixed(1) : '0';
-          var totalMB = p.total != null ? (p.total / 1048576).toFixed(1) : '?';
-          var remainMB = (p.loaded != null && p.total != null) ? ((p.total - p.loaded) / 1048576).toFixed(1) : '?';
-          render('正在下载 ' + file + ' ' + pct + '%　|　已下载 ' + doneMB + 'MB　|　剩余 ' + remainMB + 'MB', pct, false);
+          lastPct = overallPct;
+          render('正在下载 ' + file + ' ' + pct + '%　|　总进度：已下载 ' + cumMB + 'MB / 共 ' + TOTAL_MB + 'MB（剩余 ' + remainMB + 'MB）', overallPct, false);
         }
         else if (status === 'done') { lastPct = 100; render('模型文件下载完成，正在初始化...', 100, true); }
         else if (status === 'ready') { stopTimers(); render('模型加载完成，正在转写...', 100, false); }
