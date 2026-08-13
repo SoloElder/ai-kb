@@ -289,6 +289,27 @@ body {
 .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; background: var(--card); border: 1px solid var(--border); color: var(--text); font-size: 13px; z-index: 200; animation: toastIn 0.3s ease; box-shadow: var(--shadow); font-weight: 500; }
 @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
 
+/* ===== Meeting ===== */
+.meeting-panel { flex: 1; overflow-y: auto; padding: 24px 28px; display: none; }
+.meeting-panel.active { display: block; }
+.meeting-toolbar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.meeting-toolbar input[type=text] { flex: 1; min-width: 160px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; color: var(--text); font-size: 13px; outline: none; font-family: inherit; }
+.meeting-toolbar input[type=text]:focus { border-color: var(--accent); }
+.btn-rec { padding: 10px 22px; border-radius: 10px; border: none; background: var(--red); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s; }
+.btn-rec:hover { opacity: 0.9; }
+.btn-rec.recording { background: var(--red-bg); color: var(--red); animation: recPulse 1.5s ease infinite; }
+@keyframes recPulse { 0%,100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); } 50% { box-shadow: 0 0 0 10px rgba(239,68,68,0); } }
+.meeting-status { font-size: 13px; color: var(--muted); margin-bottom: 16px; padding: 10px 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; }
+.meeting-list { display: flex; flex-direction: column; gap: 10px; }
+.meeting-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; cursor: pointer; transition: all 0.15s; }
+.meeting-card:hover { border-color: var(--border2); }
+.meeting-card .mt-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.meeting-card .mt-meta { font-size: 11px; color: var(--muted); }
+.meeting-card .mt-preview { font-size: 12px; color: var(--text2); margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.meeting-card .mt-actions { margin-top: 8px; display: flex; gap: 6px; }
+.meeting-detail-body { font-size: 13px; line-height: 1.8; color: var(--text2); white-space: pre-wrap; word-break: break-word; max-height: 50vh; overflow-y: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 12px; }
+.spk-tag { display: inline-block; font-weight: 700; margin-right: 4px; }
+
 /* ===== Mobile responsive ===== */
 .mobile-menu-btn { display: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; align-items: center; justify-content: center; flex-shrink: 0; }
 .sidebar-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 40; }
@@ -356,6 +377,9 @@ body {
       <div class="sidebar-nav">
         <div class="nav-item active" data-panel="kb" onclick="switchSidePanel('kb')">
           <span class="icon">📚</span>知识库<span class="badge-count" id="kbCount">0</span>
+        </div>
+        <div class="nav-item" data-panel="meeting" onclick="switchSidePanel('meeting')">
+          <span class="icon">🎙️</span>AI 会议
         </div>
         <div class="nav-item" data-panel="users" id="navUsers" style="display:none;" onclick="switchSidePanel('users')">
           <span class="icon">👥</span>用户管理<span class="badge-count" id="userCountNav">0</span>
@@ -425,6 +449,21 @@ body {
         </div>
       </div>
 
+      <div class="meeting-panel" id="meetingPanel">
+        <div class="panel-top">
+          <h3>AI 会议记录</h3>
+          <button class="btn-sm" onclick="openAsrConfig()">转写API配置</button>
+        </div>
+        <div class="meeting-toolbar">
+          <input type="text" id="meetingTitle" placeholder="会议主题（可选）">
+          <button class="btn-rec" id="btnRec" onclick="toggleRecording()">🎙️ 开始录音</button>
+          <button class="btn-sm" onclick="document.getElementById('meetingFile').click()">📁 上传音频</button>
+          <input type="file" id="meetingFile" accept="audio/*" style="display:none;" onchange="handleAudioFile(this)">
+        </div>
+        <div class="meeting-status" id="meetingStatus">点击「开始录音」录制会议，或上传 mp3/wav 音频文件</div>
+        <div class="meeting-list" id="meetingList"></div>
+      </div>
+
       <div class="chat-input-wrap" id="chatInputArea">
         <div class="chat-input-row">
           <div class="chat-input-box"><textarea id="chatInput" placeholder="Enter 发送，Shift+Enter 换行..." rows="1" oninput="autoResize(this)" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea></div>
@@ -478,6 +517,24 @@ body {
   <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">勾选用户将能查看 <b id="authTargetName2" style="color:var(--accent);"></b> 的知识库</p>
   <div class="auth-list" id="authUserList"></div>
   <div class="modal-actions"><button onclick="closeAuthModal()">取消</button><button class="primary" onclick="saveAuth()">保存</button></div>
+</div></div>
+
+<div class="modal-overlay" id="meetingDetailOverlay"><div class="modal" style="width:680px;">
+  <h3 id="meetingDetailTitle">会议详情</h3>
+  <div class="meeting-detail-body" id="meetingDetailBody"></div>
+  <div class="modal-actions">
+    <button class="danger" style="margin-right:auto;" onclick="deleteMeeting()">删除</button>
+    <button onclick="closeMeetingDetail()">关闭</button>
+    <button class="primary" onclick="analyzeMeeting()">AI 分析</button>
+  </div>
+</div></div>
+
+<div class="modal-overlay" id="asrConfigOverlay"><div class="modal" style="width:500px;">
+  <h3>语音转写 API 配置</h3>
+  <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">使用 Whisper 兼容接口（如 OpenAI / 硅基流动 SiliconFlow）</p>
+  <div class="field"><label>转写 API 地址</label><input type="text" id="asrEndpoint" placeholder="https://api.siliconflow.cn/v1/audio/transcriptions"></div>
+  <div class="field"><label>API Key</label><input type="text" id="asrKey" placeholder="sk-..."></div>
+  <div class="modal-actions"><button onclick="closeAsrConfig()">取消</button><button class="primary" onclick="saveAsrConfig()">保存</button></div>
 </div></div>
 
 <script>
@@ -601,6 +658,16 @@ window.switchSidePanel = function(panel) {
     document.getElementById('chatArea').style.display = 'none';
     document.getElementById('chatInputArea').style.display = 'none';
     document.getElementById('userPanel').classList.add('active');
+    document.getElementById('meetingPanel').classList.remove('active');
+    document.getElementById('modelSelector').style.display = 'none';
+  } else if (panel === 'meeting') {
+    loadMeetings();
+    document.getElementById('chTitle').textContent = 'AI 会议';
+    document.getElementById('btnBackChat').style.display = 'inline-block';
+    document.getElementById('chatArea').style.display = 'none';
+    document.getElementById('chatInputArea').style.display = 'none';
+    document.getElementById('userPanel').classList.remove('active');
+    document.getElementById('meetingPanel').classList.add('active');
     document.getElementById('modelSelector').style.display = 'none';
   } else {
     showChatView();
@@ -615,6 +682,7 @@ window.showChatView = function() {
   document.getElementById('chatArea').style.display = '';
   document.getElementById('chatInputArea').style.display = '';
   document.getElementById('userPanel').classList.remove('active');
+  document.getElementById('meetingPanel').classList.remove('active');
   document.getElementById('modelSelector').style.display = '';
 };
 
@@ -786,6 +854,150 @@ window.changePassword = function() {
   api('POST', '/rest/v1/rpc/change_app_password', { new_password: pwd }).then(function(r) {
     if (!r.ok) { toast('失败'); return; }
     closePwdModal(); toast('密码已修改');
+  });
+};
+
+// ===== Meeting =====
+var mediaRecorder = null, audioChunks = [], isRecording = false;
+var currentMeetingId = null;
+
+function getAsrConfig() {
+  try { return JSON.parse(localStorage.getItem('asr_config') || '{}'); } catch(e) { return {}; }
+}
+window.openAsrConfig = function() {
+  var c = getAsrConfig();
+  document.getElementById('asrEndpoint').value = c.endpoint || 'https://api.siliconflow.cn/v1/audio/transcriptions';
+  document.getElementById('asrKey').value = c.key || '';
+  document.getElementById('asrConfigOverlay').classList.add('show');
+};
+window.closeAsrConfig = function() { document.getElementById('asrConfigOverlay').classList.remove('show'); };
+window.saveAsrConfig = function() {
+  localStorage.setItem('asr_config', JSON.stringify({
+    endpoint: document.getElementById('asrEndpoint').value.trim(),
+    key: document.getElementById('asrKey').value.trim()
+  }));
+  closeAsrConfig(); toast('转写配置已保存');
+};
+
+window.toggleRecording = function() {
+  if (isRecording) { stopRecording(); return; }
+  var btn = document.getElementById('btnRec');
+  btn.textContent = '请求麦克风权限...'; btn.disabled = true;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    mediaRecorder = new MediaRecorder(stream);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = function() {
+      stream.getTracks().forEach(function(t) { t.stop(); });
+      processRecording();
+    };
+    mediaRecorder.start();
+    isRecording = true;
+    btn.disabled = false; btn.textContent = '⏹ 停止录音并转写'; btn.classList.add('recording');
+    document.getElementById('meetingStatus').textContent = '● 正在录音... 点击「停止录音并转写」结束';
+  }).catch(function(err) {
+    btn.disabled = false; btn.textContent = '🎙️ 开始录音';
+    document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝或不可用：' + err.message;
+  });
+};
+
+function stopRecording() {
+  if (mediaRecorder && isRecording) { mediaRecorder.stop(); isRecording = false; }
+  var btn = document.getElementById('btnRec');
+  btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
+  document.getElementById('meetingStatus').textContent = '正在转写录音...';
+}
+
+function processRecording() {
+  var blob = new Blob(audioChunks, { type: 'audio/webm' });
+  if (blob.size < 1000) { document.getElementById('meetingStatus').textContent = '录音内容为空'; return; }
+  transcribeBlob(blob, 'audio.webm');
+}
+
+window.handleAudioFile = function(input) {
+  var f = input.files[0];
+  if (!f) return;
+  document.getElementById('meetingStatus').textContent = '正在转写 ' + f.name + ' ...';
+  transcribeBlob(f, f.name);
+};
+
+function transcribeBlob(blob, filename) {
+  var cfg = getAsrConfig();
+  if (!cfg.key) { toast('请先配置语音转写 API'); openAsrConfig(); document.getElementById('meetingStatus').textContent = '未配置转写 API'; return; }
+  var fd = new FormData();
+  fd.append('file', blob, filename);
+  fd.append('model', 'whisper-1');
+  fetch(cfg.endpoint, { method: 'POST', headers: { 'Authorization': 'Bearer ' + cfg.key }, body: fd })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(r) {
+      if (!r.ok) { document.getElementById('meetingStatus').textContent = '转写失败: ' + JSON.stringify(r.data); return; }
+      var text = r.data.text || '';
+      if (!text.trim()) { document.getElementById('meetingStatus').textContent = '未识别到语音内容'; return; }
+      var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
+      api('POST', '/rest/v1/meetings', { user_id: session.user.id, title: title, transcript: text, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
+        if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
+        document.getElementById('meetingTitle').value = '';
+        document.getElementById('meetingStatus').textContent = '转写完成，已保存。点击记录可查看并 AI 分析';
+        loadMeetings();
+      });
+    });
+}
+
+function loadMeetings() {
+  api('GET', '/rest/v1/meetings?select=*&user_id=eq.' + encodeURIComponent(session.user.id) + '&order=created_at.desc').then(function(r) {
+    var list = (r.ok && r.data) ? r.data : [];
+    document.getElementById('meetingList').innerHTML = list.length === 0
+      ? '<div class="sidebar-empty">暂无会议记录</div>'
+      : list.map(function(m) {
+          return '<div class="meeting-card" onclick="openMeetingDetail(\'' + m.id + '\')">' +
+            '<div class="mt-title">🎙️ ' + esc(m.title) + '</div>' +
+            '<div class="mt-meta">' + esc((m.created_at||'').substring(0,16).replace('T',' ')) + (m.analysis ? ' · 已分析' : ' · 未分析') + '</div>' +
+            '<div class="mt-preview">' + esc((m.transcript||'').substring(0,80)) + '</div></div>';
+        }).join('');
+  });
+}
+
+window.openMeetingDetail = function(id) {
+  currentMeetingId = id;
+  api('GET', '/rest/v1/meetings?select=*&id=eq.' + encodeURIComponent(id)).then(function(r) {
+    var m = (r.ok && r.data && r.data[0]) ? r.data[0] : null;
+    if (!m) return;
+    document.getElementById('meetingDetailTitle').textContent = m.title;
+    var html = '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">转写内容</div>' + esc(m.transcript);
+    if (m.analysis) {
+      html += '<div style="font-size:11px;color:var(--muted);margin:14px 0 10px;">AI 分析</div><div class="kb-section" style="margin:0;">' + m.analysis + '</div>';
+    }
+    document.getElementById('meetingDetailBody').innerHTML = html;
+    document.getElementById('meetingDetailOverlay').classList.add('show');
+  });
+};
+window.closeMeetingDetail = function() { document.getElementById('meetingDetailOverlay').classList.remove('show'); };
+
+window.deleteMeeting = function() {
+  if (!currentMeetingId || !confirm('确定删除该会议记录？')) return;
+  api('DELETE', '/rest/v1/meetings?id=eq.' + encodeURIComponent(currentMeetingId)).then(function() {
+    closeMeetingDetail(); loadMeetings(); toast('已删除');
+  });
+};
+
+window.analyzeMeeting = function() {
+  var cfg = getCurrentConfig();
+  if (!cfg.endpoint || !cfg.api_key) { toast('请先配置 AI 模型（知识库问答顶部）'); return; }
+  api('GET', '/rest/v1/meetings?select=*&id=eq.' + encodeURIComponent(currentMeetingId)).then(function(r) {
+    var m = (r.ok && r.data && r.data[0]) ? r.data[0] : null;
+    if (!m) return;
+    document.getElementById('meetingDetailBody').innerHTML = '<div style="color:var(--muted);">AI 分析中，请稍候...</div>';
+    var model = document.getElementById('chatModelSelect').value;
+    var prompt = '以下是会议转写内容，请分析并输出：\n【参会人员】从对话内容推断有几个人发言及各自观点倾向（若无法判断就写无法识别）\n【讨论议题】会议主要讨论了什么\n【关键结论】达成的共识或决定\n【待办事项】需要跟进的事项\n\n会议内容：\n' + m.transcript;
+    fetch(cfg.endpoint.replace(/\/+$/,'')+'/chat/completions', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+cfg.api_key },
+      body: JSON.stringify({ model: model, messages: [{ role: 'user', content: prompt }], stream: false })
+    }).then(function(res) { return res.json(); }).then(function(d) {
+      var analysis = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : JSON.stringify(d);
+      api('PATCH', '/rest/v1/meetings?id=eq.' + encodeURIComponent(currentMeetingId), { analysis: analysis }).then(function() {
+        openMeetingDetail(currentMeetingId); loadMeetings(); toast('分析完成');
+      });
+    }).catch(function(e) { document.getElementById('meetingDetailBody').textContent = '分析失败: ' + e.message; });
   });
 };
 
