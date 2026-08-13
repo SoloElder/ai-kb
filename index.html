@@ -935,24 +935,16 @@ function transcribeBlob(blob, filename) {
 var whisperPromise = null;
 function loadWhisper() {
   if (whisperPromise) return whisperPromise;
-  var cdns = [
-    'https://registry.npmmirror.com/@xenova/transformers/2.17.2/files/dist/transformers.min.js',
-    'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js',
-    'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js'
+  var urls = [
+    'https://registry.npmmirror.com/@xenova/transformers/2.17.2/files/dist/transformers.js',
+    'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.js',
+    'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.js'
   ];
-  function tryLoad(i) {
-    if (i >= cdns.length) return Promise.reject(new Error('模型库加载失败，请检查网络'));
-    return new Promise(function(resolve, reject) {
-      var s = document.createElement('script');
-      s.src = cdns[i];
-      s.onload = function() { resolve(); };
-      s.onerror = function() { tryLoad(i + 1).then(resolve).catch(reject); };
-      document.head.appendChild(s);
-    });
+  function tryImport(i) {
+    if (i >= urls.length) return Promise.reject(new Error('模型库加载失败，请检查网络'));
+    return import(urls[i]).catch(function() { return tryImport(i + 1); });
   }
-  whisperPromise = tryLoad(0).then(function() {
-    var m = window.Transformers || window.TransformerJS;
-    if (!m) throw new Error('模型库加载异常');
+  whisperPromise = tryImport(0).then(function(m) {
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
