@@ -963,7 +963,7 @@ function loadWhisper() {
     env.allowLocalModels = false;
     env.useBrowserCache = true;
     env.remoteHost = 'https://soloelder.github.io';
-    env.remotePathTemplate = 'ai-kb/models/{model}/{file}';
+    env.remotePathTemplate = 'ai-kb/models/{model}';
     var lastPct = 0, tickTimer = null, lastEvent = Date.now(), watchdog = null;
     function fmtMB(b) { return b == null ? '' : (b / 1048576).toFixed(1) + 'MB'; }
     function render(msg, pct, indeterminate) {
