@@ -851,10 +851,10 @@ window.changePassword = function() {
 
 // ===== Meeting =====
 var currentMeetingId = null;
-var speechRec = null, isListening = false, liveTranscript = '', speakerIdx = 0;
+var mediaRecorder = null, audioChunks = [], isRecording = false, recTimer = null, recSeconds = 0;
 
 function saveMeeting(title, transcript) {
-  api('POST', '/rest/v1/meetings', { user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
+  api('POST', '/rest/v1/meetings', { id: 'mt_' + Date.now(), user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
     if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
     document.getElementById('meetingTitle').value = '';
     document.getElementById('meetingStatus').textContent = '转写完成，已保存。点击记录可查看并 AI 分析';
@@ -863,78 +863,86 @@ function saveMeeting(title, transcript) {
 }
 
 window.toggleRecording = function() {
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    document.getElementById('meetingStatus').innerHTML = '当前浏览器不支持内置语音识别。请使用 Chrome 或 Edge 浏览器（无需注册任何接口）。';
-    return;
-  }
-  if (isListening) { stopListening(); return; }
-  speechRec = new SR();
-  speechRec.lang = 'zh-CN';
-  speechRec.continuous = true;
-  speechRec.interimResults = true;
-  liveTranscript = '';
-  speakerIdx = 0;
-  speechRec.onresult = function(e) {
-    var finalText = '';
-    var interim = '';
-    for (var i = e.resultIndex; i < e.results.length; i++) {
-      if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
-      else interim += e.results[i][0].transcript;
-    }
-    if (finalText) { liveTranscript += finalText; }
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中</span> 已识别 ' + liveTranscript.length + ' 字（实时转写，无需任何 API）...<br><span style="color:var(--text2);">' + esc(liveTranscript.substring(Math.max(0, liveTranscript.length - 120)) + interim) + '</span>';
-  };
-  speechRec.onerror = function(e) {
-    if (e.error === 'no-speech') { document.getElementById('meetingStatus').textContent = '未检测到声音，继续聆听中...'; return; }
-    if (e.error === 'aborted') return;
-    document.getElementById('meetingStatus').textContent = '语音识别错误: ' + e.error;
-  };
-  speechRec.onend = function() {
-    if (isListening) { try { speechRec.start(); } catch(err) {} }
-  };
-  speechRec.start();
-  isListening = true;
+  if (isRecording) { stopRecording(); return; }
   var btn = document.getElementById('btnRec');
-  btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
-  document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中</span> 开始说话吧，文字将实时显示（浏览器内置识别，无需 API）';
+  btn.textContent = '请求麦克风权限...'; btn.disabled = true;
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+             : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+    mediaRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    audioChunks = [];
+    mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
+    mediaRecorder.onstop = function() {
+      stream.getTracks().forEach(function(t) { t.stop(); });
+      processRecording();
+    };
+    mediaRecorder.start(1000);
+    isRecording = true;
+    recSeconds = 0;
+    btn.disabled = false; btn.textContent = '⏹ 停止并转写'; btn.classList.add('recording');
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中 00:00</span> 完整录制会议声音，停止后本地 AI 转写';
+    recTimer = setInterval(function() {
+      recSeconds++;
+      var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
+      document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '</span> 完整录制会议声音，停止后本地 AI 转写';
+    }, 1000);
+  }).catch(function(err) {
+    btn.disabled = false; btn.textContent = '🎙️ 开始录音';
+    document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝或不可用：' + err.message;
+  });
 };
 
-function stopListening() {
-  isListening = false;
-  try { if (speechRec) speechRec.stop(); } catch(e) {}
+function stopRecording() {
+  isRecording = false;
+  if (recTimer) { clearInterval(recTimer); recTimer = null; }
   var btn = document.getElementById('btnRec');
-  btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
-  var text = liveTranscript.trim();
-  if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
-  var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
-  saveMeeting(title, text);
+  btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音'; btn.disabled = true;
+  document.getElementById('meetingStatus').textContent = '正在转写录音...';
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+function processRecording() {
+  var btn = document.getElementById('btnRec'); btn.disabled = false;
+  if (audioChunks.length === 0) { document.getElementById('meetingStatus').textContent = '录音内容为空'; return; }
+  var type = mediaRecorder.mimeType || 'audio/webm';
+  var blob = new Blob(audioChunks, { type: type });
+  transcribeBlob(blob, type.indexOf('mp4') !== -1 ? 'audio.m4a' : 'audio.webm');
 }
 
 window.handleAudioFile = function(input) {
   var f = input.files[0];
   if (!f) return;
-  document.getElementById('meetingStatus').textContent = '正在加载本地 Whisper 模型（首次约 40MB，之后走缓存）...';
+  document.getElementById('meetingStatus').textContent = '正在转写 ' + f.name + ' ...';
+  transcribeBlob(f, f.name);
+};
+
+function transcribeBlob(blob, filename) {
   loadWhisper().then(function(transcriber) {
-    document.getElementById('meetingStatus').textContent = '正在转写 ' + f.name + '，请耐心等待...';
-    var url = URL.createObjectURL(f);
-    return transcriber(url, { language: 'chinese', task: 'transcribe' }).then(function(out) {
+    document.getElementById('meetingStatus').textContent = '正在 AI 转写中，请耐心等待（本地处理，不上传）...';
+    var url = URL.createObjectURL(blob);
+    return transcriber(url, { language: 'chinese', task: 'transcribe', chunk_length_s: 30, stride_length_s: 5 }).then(function(out) {
       URL.revokeObjectURL(url);
       var text = out && out.text ? out.text.trim() : '';
       if (!text) { document.getElementById('meetingStatus').textContent = '未识别到语音内容'; return; }
-      var title = document.getElementById('meetingTitle').value.trim() || f.name.replace(/\.[^.]+$/, '');
+      var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
       saveMeeting(title, text);
     });
   }).catch(function(e) {
-    document.getElementById('meetingStatus').textContent = '本地转写失败: ' + e.message + '（可改用「开始录音」实时转写）';
+    document.getElementById('meetingStatus').textContent = '转写失败: ' + e.message;
   });
-};
+}
 
 var whisperPromise = null;
 function loadWhisper() {
   if (whisperPromise) return whisperPromise;
   whisperPromise = import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2').then(function(m) {
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
+    var env = m.env;
+    env.allowLocalModels = false;
+    env.useBrowserCache = true;
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base');
+  }).catch(function() {
+    whisperPromise = null;
+    throw new Error('模型加载失败，请检查网络（首次需下载约140MB模型）');
   });
   return whisperPromise;
 }
@@ -959,14 +967,33 @@ window.openMeetingDetail = function(id) {
     var m = (r.ok && r.data && r.data[0]) ? r.data[0] : null;
     if (!m) return;
     document.getElementById('meetingDetailTitle').textContent = m.title;
-    var html = '<div style="font-size:11px;color:var(--muted);margin-bottom:10px;">转写内容</div>' + esc(m.transcript);
+    var html = '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><span style="font-size:11px;color:var(--muted);">转写内容</span><button class="btn-sm" onclick="copySectionText(\'meetingTranscript\')">复制</button></div>' +
+      '<div id="meetingTranscript" style="margin-bottom:6px;">' + esc(m.transcript) + '</div>';
     if (m.analysis) {
-      html += '<div style="font-size:11px;color:var(--muted);margin:14px 0 10px;">AI 分析</div><div class="kb-section" style="margin:0;">' + m.analysis + '</div>';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin:14px 0 10px;"><span style="font-size:11px;color:var(--muted);">AI 分析</span><button class="btn-sm" onclick="copySectionText(\'meetingAnalysis\')">复制</button></div>' +
+        '<div id="meetingAnalysis">' + formatAnalysis(m.analysis) + '</div>';
     }
     document.getElementById('meetingDetailBody').innerHTML = html;
     document.getElementById('meetingDetailOverlay').classList.add('show');
   });
 };
+
+function formatAnalysis(text) {
+  if (!text) return '';
+  return text
+    .replace(/【参会人员】/g, '<div class="kb-section"><div class="kb-section-title">👥 参会人员</div><div class="kb-section-body">')
+    .replace(/【讨论议题】/g, '</div></div><div class="kb-section"><div class="kb-section-title">📋 讨论议题</div><div class="kb-section-body">')
+    .replace(/【关键结论】/g, '</div></div><div class="kb-section"><div class="kb-section-title">🎯 关键结论</div><div class="kb-section-body">')
+    .replace(/【待办事项】/g, '</div></div><div class="kb-section"><div class="kb-section-title">📌 待办事项</div><div class="kb-section-body">')
+    + '</div></div>';
+}
+
+window.copySectionText = function(id) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.textContent).then(function() { toast('已复制'); });
+};
+
 window.closeMeetingDetail = function() { document.getElementById('meetingDetailOverlay').classList.remove('show'); };
 
 window.deleteMeeting = function() {
