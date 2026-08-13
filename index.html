@@ -853,22 +853,58 @@ window.changePassword = function() {
 var currentMeetingId = null;
 var speechRec = null, liveTranscript = '', isRecording = false, recTimer = null, recSeconds = 0;
 var speakerIdx = 1, lastSpeechTime = 0, restartTimer = null, silentCtx = null;
+var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null, prevSpeakerPitch = 0;
 
-function saveMeeting(title, transcript) {
-  api('POST', '/rest/v1/meetings', { id: 'mt_' + Date.now(), user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
-    if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
-    document.getElementById('meetingTitle').value = '';
-    document.getElementById('meetingStatus').textContent = '已保存。点击记录可查看并 AI 分析';
-    loadMeetings();
-  });
+function medianPitch(arr) {
+  if (!arr || arr.length === 0) return 0;
+  var s = arr.slice().sort(function(a,b){return a-b;});
+  var mid = Math.floor(s.length/2);
+  return s.length % 2 ? s[mid] : (s[mid-1]+s[mid])/2;
+}
+
+function detectPitch(buf, sampleRate) {
+  var n = buf.length, bestOffset = -1, bestCorr = 0;
+  var minLag = Math.floor(sampleRate/500), maxLag = Math.floor(sampleRate/50);
+  for (var lag = minLag; lag <= maxLag; lag++) {
+    var corr = 0;
+    for (var i = 0; i < n - lag; i++) corr += buf[i] * buf[i+lag];
+    if (corr > bestCorr) { bestCorr = corr; bestOffset = lag; }
+  }
+  if (bestCorr <= 0 || bestOffset === -1) return 0;
+  var pitch = sampleRate / bestOffset;
+  return (pitch > 50 && pitch < 500) ? pitch : 0;
+}
+
+function startPitchTracking(stream) {
+  try {
+    pitchCtx = new (window.AudioContext || window.webkitAudioContext)();
+    var src = pitchCtx.createMediaStreamSource(stream);
+    pitchAnalyser = pitchCtx.createAnalyser();
+    pitchAnalyser.fftSize = 2048;
+    src.connect(pitchAnalyser);
+    var buf = new Float32Array(pitchAnalyser.fftSize);
+    pitchTimer = setInterval(function() {
+      pitchAnalyser.getFloatTimeDomainData(buf);
+      var p = detectPitch(buf, pitchCtx.sampleRate);
+      if (p) pitchSamples.push(p);
+    }, 120);
+  } catch(e) { pitchCtx = null; }
+}
+
+function stopPitchTracking() {
+  if (pitchTimer) { clearInterval(pitchTimer); pitchTimer = null; }
+  try { if (pitchCtx) { pitchCtx.close(); pitchCtx = null; } } catch(e) {}
+  pitchSamples = [];
+  prevSpeakerPitch = 0;
 }
 
 function speakerLabel() { return '【发言人' + speakerIdx + '】'; }
 
 function renderLive(interim) {
   var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
+  var mode = prevSpeakerPitch > 0 ? '音色自动识别' : '停顿3秒切换';
   document.getElementById('meetingStatus').innerHTML =
-    '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '　当前: 发言人' + speakerIdx + '（停顿3秒自动换人，也可手动切换）</span><br><br>' +
+    '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '　当前: 发言人' + speakerIdx + '（' + mode + '，可手动切换）</span><br><br>' +
     '<div style="color:var(--text2);font-size:13px;line-height:1.8;max-height:220px;overflow-y:auto;">' + esc(liveTranscript) + '<span style="color:var(--muted);">' + esc(interim || '') + '</span></div>';
 }
 
@@ -919,7 +955,17 @@ window.toggleRecording = function() {
     }
     if (finalText) {
       var now = Date.now();
-      if (liveTranscript !== '' && now - lastSpeechTime > 3000) speakerIdx++;
+      var segPitch = medianPitch(pitchSamples);
+      pitchSamples = [];
+      if (liveTranscript !== '') {
+        var switched = false;
+        if (segPitch > 0 && prevSpeakerPitch > 0) {
+          var ratio = segPitch / prevSpeakerPitch;
+          if (ratio > 1.22 || ratio < 0.82) { speakerIdx++; switched = true; }
+        }
+        if (!switched && now - lastSpeechTime > 3500) { speakerIdx++; }
+      }
+      if (segPitch > 0) prevSpeakerPitch = segPitch;
       if (liveTranscript !== '') liveTranscript += '\n';
       liveTranscript += speakerLabel() + ' ' + finalText;
       lastSpeechTime = now;
@@ -931,7 +977,7 @@ window.toggleRecording = function() {
     if (e.error === 'aborted') return;
     if (e.error === 'not-allowed') {
       document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝';
-      btn.disabled = false; btn.textContent = '🎙️ 开始录音'; btn.classList.remove('recording'); isRecording = false; stopSilentAudio(); return;
+      btn.disabled = false; btn.textContent = '🎙️ 开始录音'; btn.classList.remove('recording'); isRecording = false; stopSilentAudio(); stopPitchTracking(); return;
     }
     if (e.error === 'network') { setTimeout(function() { if (isRecording) startRecognition(); }, 1000); return; }
     renderLive('');
@@ -939,17 +985,32 @@ window.toggleRecording = function() {
   speechRec.onend = function() {
     if (isRecording) startRecognition();
   };
-  speechRec.start();
-  isRecording = true;
-  startSilentAudio();
-  btn.disabled = false; btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
-  recTimer = setInterval(function() { recSeconds++; }, 1000);
-  restartTimer = setInterval(function() {
-    if (isRecording && speechRec) {
-      try { speechRec.stop(); } catch(e) {}
-      setTimeout(function() { if (isRecording) startRecognition(); }, 200);
-    }
-  }, 55000);
+  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
+    startPitchTracking(stream);
+    try { speechRec.start(); } catch(err) {}
+    isRecording = true;
+    startSilentAudio();
+    btn.disabled = false; btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
+    recTimer = setInterval(function() { recSeconds++; }, 1000);
+    restartTimer = setInterval(function() {
+      if (isRecording && speechRec) {
+        try { speechRec.stop(); } catch(e) {}
+        setTimeout(function() { if (isRecording) startRecognition(); }, 200);
+      }
+    }, 55000);
+  }).catch(function() {
+    try { speechRec.start(); } catch(err) {}
+    isRecording = true;
+    startSilentAudio();
+    btn.disabled = false; btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
+    recTimer = setInterval(function() { recSeconds++; }, 1000);
+    restartTimer = setInterval(function() {
+      if (isRecording && speechRec) {
+        try { speechRec.stop(); } catch(e) {}
+        setTimeout(function() { if (isRecording) startRecognition(); }, 200);
+      }
+    }, 55000);
+  });
 };
 
 window.nextSpeaker = function() {
@@ -966,6 +1027,7 @@ function stopRecording() {
   if (recTimer) { clearInterval(recTimer); recTimer = null; }
   if (restartTimer) { clearInterval(restartTimer); restartTimer = null; }
   stopSilentAudio();
+  stopPitchTracking();
   var btn = document.getElementById('btnRec');
   btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
   try { if (speechRec) speechRec.stop(); } catch(e) {}
