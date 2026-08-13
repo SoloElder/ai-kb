@@ -855,6 +855,7 @@ var speechRec = null, liveTranscript = '', isRecording = false, recTimer = null,
 var speakerIdx = 1, lastSpeechTime = 0, restartTimer = null, silentCtx = null;
 var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null, speakerProfiles = [];
 var pendingInterim = '', lastInterimTime = 0, interimTimer = null;
+var audioRecorder = null, audioChunks = [];
 
 function medianPitch(arr) {
   if (!arr || arr.length === 0) return 0;
@@ -1016,6 +1017,12 @@ window.toggleRecording = function() {
   };
   navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
     startPitchTracking(stream);
+    var mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+             : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : '';
+    audioRecorder = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    audioChunks = [];
+    audioRecorder.ondataavailable = function(ev) { if (ev.data.size > 0) audioChunks.push(ev.data); };
+    audioRecorder.start(1000);
     try { speechRec.start(); } catch(err) {}
     isRecording = true;
     startSilentAudio();
@@ -1066,6 +1073,25 @@ function stopRecording() {
   var btn = document.getElementById('btnRec');
   btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
   try { if (speechRec) speechRec.stop(); } catch(e) {}
+  if (audioRecorder && audioRecorder.state !== 'inactive') {
+    audioRecorder.onstop = function() {
+      var type = audioRecorder.mimeType || 'audio/webm';
+      var blob = new Blob(audioChunks, { type: type });
+      var ext = type.indexOf('mp4') !== -1 ? 'm4a' : 'webm';
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = '会议录音_' + new Date().toLocaleString().replace(/[/:]/g, '-') + '.' + ext;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    };
+    audioRecorder.stop();
+  } else if (audioChunks.length > 0) {
+    var type = 'audio/webm';
+    var blob = new Blob(audioChunks, { type: type });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = '会议录音_' + new Date().toLocaleString().replace(/[/:]/g, '-') + '.webm';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
   var text = liveTranscript.trim();
   if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
   var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
