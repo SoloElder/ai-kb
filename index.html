@@ -935,14 +935,45 @@ function transcribeBlob(blob, filename) {
 var whisperPromise = null;
 function loadWhisper() {
   if (whisperPromise) return whisperPromise;
-  whisperPromise = import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2').then(function(m) {
+  var cdns = [
+    'https://registry.npmmirror.com/@xenova/transformers/2.17.2/files/dist/transformers.min.js',
+    'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2/dist/transformers.min.js',
+    'https://unpkg.com/@xenova/transformers@2.17.2/dist/transformers.min.js'
+  ];
+  function tryLoad(i) {
+    if (i >= cdns.length) return Promise.reject(new Error('模型库加载失败，请检查网络'));
+    return new Promise(function(resolve, reject) {
+      var s = document.createElement('script');
+      s.src = cdns[i];
+      s.onload = function() { resolve(); };
+      s.onerror = function() { tryLoad(i + 1).then(resolve).catch(reject); };
+      document.head.appendChild(s);
+    });
+  }
+  whisperPromise = tryLoad(0).then(function() {
+    var m = window.Transformers;
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base');
-  }).catch(function() {
+    env.remoteHost = 'https://hf-mirror.com';
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', {
+      progress_callback: function(p) {
+        if (!p || !p.status) return;
+        var pct = p.progress !== undefined ? Math.round(p.progress) : 0;
+        var file = p.file || '';
+        var status = p.status;
+        var msg;
+        if (status === 'progress') msg = '正在下载模型 ' + file + ' ' + pct + '%';
+        else if (status === 'done') msg = '模型加载完成，开始转写...';
+        else if (status === 'ready') msg = '正在转写，请耐心等待（长音频较慢）...';
+        else msg = status + ' ' + (pct ? pct + '%' : '');
+        var el = document.getElementById('meetingStatus');
+        if (el) el.innerHTML = '⏳ ' + msg + '<br><div style="margin-top:6px;height:4px;background:var(--surface);border-radius:2px;overflow:hidden;"><div style="height:100%;width:' + pct + '%;background:var(--accent);transition:width 0.3s;"></div></div>';
+      }
+    });
+  }).catch(function(e) {
     whisperPromise = null;
-    throw new Error('模型加载失败，请检查网络（首次需下载约140MB模型）');
+    throw e;
   });
   return whisperPromise;
 }
