@@ -853,7 +853,7 @@ window.changePassword = function() {
 var currentMeetingId = null;
 var speechRec = null, liveTranscript = '', isRecording = false, recTimer = null, recSeconds = 0;
 var speakerIdx = 1, lastSpeechTime = 0, restartTimer = null, silentCtx = null;
-var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null, prevSpeakerPitch = 0;
+var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null, speakerProfiles = [];
 
 function medianPitch(arr) {
   if (!arr || arr.length === 0) return 0;
@@ -895,16 +895,24 @@ function stopPitchTracking() {
   if (pitchTimer) { clearInterval(pitchTimer); pitchTimer = null; }
   try { if (pitchCtx) { pitchCtx.close(); pitchCtx = null; } } catch(e) {}
   pitchSamples = [];
-  prevSpeakerPitch = 0;
+  speakerProfiles = [];
+}
+
+function matchSpeaker(segPitch) {
+  for (var i = 0; i < speakerProfiles.length; i++) {
+    var avg = speakerProfiles[i].avg;
+    if (avg > 0 && Math.abs(segPitch - avg) / avg < 0.15) return speakerProfiles[i].idx;
+  }
+  return 0;
 }
 
 function speakerLabel() { return '【发言人' + speakerIdx + '】'; }
 
 function renderLive(interim) {
   var mm = String(Math.floor(recSeconds/60)).padStart(2,'0'), ss = String(recSeconds%60).padStart(2,'0');
-  var mode = prevSpeakerPitch > 0 ? '音色自动识别' : '停顿3秒切换';
+  var mode = speakerProfiles.length > 0 ? '音色自动识别（已识别 ' + speakerProfiles.length + ' 个声音）' : '音色分析中...';
   document.getElementById('meetingStatus').innerHTML =
-    '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '　当前: 发言人' + speakerIdx + '（' + mode + '，可手动切换）</span><br><br>' +
+    '<span style="color:var(--red);font-weight:600;">● 录音中 ' + mm + ':' + ss + '　' + mode + '</span><br><br>' +
     '<div style="color:var(--text2);font-size:13px;line-height:1.8;max-height:220px;overflow-y:auto;">' + esc(liveTranscript) + '<span style="color:var(--muted);">' + esc(interim || '') + '</span></div>';
 }
 
@@ -954,21 +962,28 @@ window.toggleRecording = function() {
       else interim += e.results[i][0].transcript;
     }
     if (finalText) {
-      var now = Date.now();
       var segPitch = medianPitch(pitchSamples);
       pitchSamples = [];
-      if (liveTranscript !== '') {
-        var switched = false;
-        if (segPitch > 0 && prevSpeakerPitch > 0) {
-          var ratio = segPitch / prevSpeakerPitch;
-          if (ratio > 1.22 || ratio < 0.82) { speakerIdx++; switched = true; }
+      if (segPitch > 0) {
+        var matched = matchSpeaker(segPitch);
+        if (matched > 0) {
+          speakerIdx = matched;
+          for (var j = 0; j < speakerProfiles.length; j++) {
+            if (speakerProfiles[j].idx === matched) {
+              speakerProfiles[j].sum += segPitch;
+              speakerProfiles[j].count++;
+              speakerProfiles[j].avg = speakerProfiles[j].sum / speakerProfiles[j].count;
+            }
+          }
+        } else if (liveTranscript !== '') {
+          speakerIdx++;
+          speakerProfiles.push({ idx: speakerIdx, sum: segPitch, count: 1, avg: segPitch });
+        } else {
+          speakerProfiles.push({ idx: speakerIdx, sum: segPitch, count: 1, avg: segPitch });
         }
-        if (!switched && now - lastSpeechTime > 3500) { speakerIdx++; }
       }
-      if (segPitch > 0) prevSpeakerPitch = segPitch;
       if (liveTranscript !== '') liveTranscript += '\n';
       liveTranscript += speakerLabel() + ' ' + finalText;
-      lastSpeechTime = now;
     }
     renderLive(interim);
   };
