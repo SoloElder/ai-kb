@@ -452,7 +452,7 @@ body {
       <div class="meeting-panel" id="meetingPanel">
         <div class="panel-top">
           <h3>AI 会议记录</h3>
-          <button class="btn-sm" onclick="openAsrConfig()">转写API配置</button>
+          <span style="font-size:11px;color:var(--muted);">录音实时转写 · 音频本地识别 · 无需任何API</span>
         </div>
         <div class="meeting-toolbar">
           <input type="text" id="meetingTitle" placeholder="会议主题（可选）">
@@ -527,14 +527,6 @@ body {
     <button onclick="closeMeetingDetail()">关闭</button>
     <button class="primary" onclick="analyzeMeeting()">AI 分析</button>
   </div>
-</div></div>
-
-<div class="modal-overlay" id="asrConfigOverlay"><div class="modal" style="width:500px;">
-  <h3>语音转写 API 配置</h3>
-  <p style="font-size:12px;color:var(--muted);margin-bottom:12px;">使用 Whisper 兼容接口（如 OpenAI / 硅基流动 SiliconFlow）</p>
-  <div class="field"><label>转写 API 地址</label><input type="text" id="asrEndpoint" placeholder="https://api.siliconflow.cn/v1/audio/transcriptions"></div>
-  <div class="field"><label>API Key</label><input type="text" id="asrKey" placeholder="sk-..."></div>
-  <div class="modal-actions"><button onclick="closeAsrConfig()">取消</button><button class="primary" onclick="saveAsrConfig()">保存</button></div>
 </div></div>
 
 <script>
@@ -858,89 +850,93 @@ window.changePassword = function() {
 };
 
 // ===== Meeting =====
-var mediaRecorder = null, audioChunks = [], isRecording = false;
 var currentMeetingId = null;
+var speechRec = null, isListening = false, liveTranscript = '', speakerIdx = 0;
 
-function getAsrConfig() {
-  try { return JSON.parse(localStorage.getItem('asr_config') || '{}'); } catch(e) { return {}; }
+function saveMeeting(title, transcript) {
+  api('POST', '/rest/v1/meetings', { user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
+    if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
+    document.getElementById('meetingTitle').value = '';
+    document.getElementById('meetingStatus').textContent = '转写完成，已保存。点击记录可查看并 AI 分析';
+    loadMeetings();
+  });
 }
-window.openAsrConfig = function() {
-  var c = getAsrConfig();
-  document.getElementById('asrEndpoint').value = c.endpoint || 'https://api.siliconflow.cn/v1/audio/transcriptions';
-  document.getElementById('asrKey').value = c.key || '';
-  document.getElementById('asrConfigOverlay').classList.add('show');
-};
-window.closeAsrConfig = function() { document.getElementById('asrConfigOverlay').classList.remove('show'); };
-window.saveAsrConfig = function() {
-  localStorage.setItem('asr_config', JSON.stringify({
-    endpoint: document.getElementById('asrEndpoint').value.trim(),
-    key: document.getElementById('asrKey').value.trim()
-  }));
-  closeAsrConfig(); toast('转写配置已保存');
-};
 
 window.toggleRecording = function() {
-  if (isRecording) { stopRecording(); return; }
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    document.getElementById('meetingStatus').innerHTML = '当前浏览器不支持内置语音识别。请使用 Chrome 或 Edge 浏览器（无需注册任何接口）。';
+    return;
+  }
+  if (isListening) { stopListening(); return; }
+  speechRec = new SR();
+  speechRec.lang = 'zh-CN';
+  speechRec.continuous = true;
+  speechRec.interimResults = true;
+  liveTranscript = '';
+  speakerIdx = 0;
+  speechRec.onresult = function(e) {
+    var finalText = '';
+    var interim = '';
+    for (var i = e.resultIndex; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (finalText) { liveTranscript += finalText; }
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中</span> 已识别 ' + liveTranscript.length + ' 字（实时转写，无需任何 API）...<br><span style="color:var(--text2);">' + esc(liveTranscript.substring(Math.max(0, liveTranscript.length - 120)) + interim) + '</span>';
+  };
+  speechRec.onerror = function(e) {
+    if (e.error === 'no-speech') { document.getElementById('meetingStatus').textContent = '未检测到声音，继续聆听中...'; return; }
+    if (e.error === 'aborted') return;
+    document.getElementById('meetingStatus').textContent = '语音识别错误: ' + e.error;
+  };
+  speechRec.onend = function() {
+    if (isListening) { try { speechRec.start(); } catch(err) {} }
+  };
+  speechRec.start();
+  isListening = true;
   var btn = document.getElementById('btnRec');
-  btn.textContent = '请求麦克风权限...'; btn.disabled = true;
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(function(stream) {
-    mediaRecorder = new MediaRecorder(stream);
-    audioChunks = [];
-    mediaRecorder.ondataavailable = function(e) { if (e.data.size > 0) audioChunks.push(e.data); };
-    mediaRecorder.onstop = function() {
-      stream.getTracks().forEach(function(t) { t.stop(); });
-      processRecording();
-    };
-    mediaRecorder.start();
-    isRecording = true;
-    btn.disabled = false; btn.textContent = '⏹ 停止录音并转写'; btn.classList.add('recording');
-    document.getElementById('meetingStatus').textContent = '● 正在录音... 点击「停止录音并转写」结束';
-  }).catch(function(err) {
-    btn.disabled = false; btn.textContent = '🎙️ 开始录音';
-    document.getElementById('meetingStatus').textContent = '麦克风权限被拒绝或不可用：' + err.message;
-  });
+  btn.textContent = '⏹ 停止并保存'; btn.classList.add('recording');
+  document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--red);font-weight:600;">● 录音中</span> 开始说话吧，文字将实时显示（浏览器内置识别，无需 API）';
 };
 
-function stopRecording() {
-  if (mediaRecorder && isRecording) { mediaRecorder.stop(); isRecording = false; }
+function stopListening() {
+  isListening = false;
+  try { if (speechRec) speechRec.stop(); } catch(e) {}
   var btn = document.getElementById('btnRec');
   btn.classList.remove('recording'); btn.textContent = '🎙️ 开始录音';
-  document.getElementById('meetingStatus').textContent = '正在转写录音...';
-}
-
-function processRecording() {
-  var blob = new Blob(audioChunks, { type: 'audio/webm' });
-  if (blob.size < 1000) { document.getElementById('meetingStatus').textContent = '录音内容为空'; return; }
-  transcribeBlob(blob, 'audio.webm');
+  var text = liveTranscript.trim();
+  if (!text) { document.getElementById('meetingStatus').textContent = '没有识别到内容，请重试'; return; }
+  var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
+  saveMeeting(title, text);
 }
 
 window.handleAudioFile = function(input) {
   var f = input.files[0];
   if (!f) return;
-  document.getElementById('meetingStatus').textContent = '正在转写 ' + f.name + ' ...';
-  transcribeBlob(f, f.name);
+  document.getElementById('meetingStatus').textContent = '正在加载本地 Whisper 模型（首次约 40MB，之后走缓存）...';
+  loadWhisper().then(function(transcriber) {
+    document.getElementById('meetingStatus').textContent = '正在转写 ' + f.name + '，请耐心等待...';
+    var url = URL.createObjectURL(f);
+    return transcriber(url, { language: 'chinese', task: 'transcribe' }).then(function(out) {
+      URL.revokeObjectURL(url);
+      var text = out && out.text ? out.text.trim() : '';
+      if (!text) { document.getElementById('meetingStatus').textContent = '未识别到语音内容'; return; }
+      var title = document.getElementById('meetingTitle').value.trim() || f.name.replace(/\.[^.]+$/, '');
+      saveMeeting(title, text);
+    });
+  }).catch(function(e) {
+    document.getElementById('meetingStatus').textContent = '本地转写失败: ' + e.message + '（可改用「开始录音」实时转写）';
+  });
 };
 
-function transcribeBlob(blob, filename) {
-  var cfg = getAsrConfig();
-  if (!cfg.key) { toast('请先配置语音转写 API'); openAsrConfig(); document.getElementById('meetingStatus').textContent = '未配置转写 API'; return; }
-  var fd = new FormData();
-  fd.append('file', blob, filename);
-  fd.append('model', 'whisper-1');
-  fetch(cfg.endpoint, { method: 'POST', headers: { 'Authorization': 'Bearer ' + cfg.key }, body: fd })
-    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
-    .then(function(r) {
-      if (!r.ok) { document.getElementById('meetingStatus').textContent = '转写失败: ' + JSON.stringify(r.data); return; }
-      var text = r.data.text || '';
-      if (!text.trim()) { document.getElementById('meetingStatus').textContent = '未识别到语音内容'; return; }
-      var title = document.getElementById('meetingTitle').value.trim() || ('会议记录 ' + new Date().toLocaleString());
-      api('POST', '/rest/v1/meetings', { user_id: session.user.id, title: title, transcript: text, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
-        if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
-        document.getElementById('meetingTitle').value = '';
-        document.getElementById('meetingStatus').textContent = '转写完成，已保存。点击记录可查看并 AI 分析';
-        loadMeetings();
-      });
-    });
+var whisperPromise = null;
+function loadWhisper() {
+  if (whisperPromise) return whisperPromise;
+  whisperPromise = import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2').then(function(m) {
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny');
+  });
+  return whisperPromise;
 }
 
 function loadMeetings() {
