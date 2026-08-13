@@ -997,7 +997,13 @@ function loadWhisper() {
         var sizeStr = (p.loaded != null && p.total != null) ? ' (' + fmtMB(p.loaded) + ' / ' + fmtMB(p.total) + ')' : (p.loaded != null ? ' (' + fmtMB(p.loaded) + ')' : '');
         if (status === 'initiate') { lastPct = 0; render('正在准备模型文件...', 0, true); startWatchdog(); }
         else if (status === 'download') { render('开始下载 ' + file + '...', 0, true); }
-        else if (status === 'progress') { lastPct = pct; render('正在下载 ' + file + ' ' + pct + '%' + sizeStr, pct, false); }
+        else if (status === 'progress') {
+          lastPct = pct;
+          var doneMB = p.loaded != null ? (p.loaded / 1048576).toFixed(1) : '0';
+          var totalMB = p.total != null ? (p.total / 1048576).toFixed(1) : '?';
+          var remainMB = (p.loaded != null && p.total != null) ? ((p.total - p.loaded) / 1048576).toFixed(1) : '?';
+          render('正在下载 ' + file + ' ' + pct + '%　|　已下载 ' + doneMB + 'MB　|　剩余 ' + remainMB + 'MB', pct, false);
+        }
         else if (status === 'done') { lastPct = 100; render('模型文件下载完成，正在初始化...', 100, true); }
         else if (status === 'ready') { stopTimers(); render('模型加载完成，正在转写...', 100, false); }
       }
