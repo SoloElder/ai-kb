@@ -457,8 +457,8 @@ body {
         </div>
         <div class="meeting-toolbar">
           <input type="text" id="meetingTitle" placeholder="会议主题（可选）">
-          <button class="btn-rec" id="btnRec" onclick="toggleRecording()">🎙️ 开始录音</button>
-          <button class="btn-sm" onclick="document.getElementById('meetingFile').click()">📁 上传音频</button>
+          <button class="btn-rec" id="btnRec" onclick="toggleRecording()" disabled style="opacity:0.5;">🎙️ 开始录音</button>
+          <button class="btn-sm" id="btnUpload" onclick="document.getElementById('meetingFile').click()" disabled>📁 上传音频</button>
           <input type="file" id="meetingFile" accept="audio/*" style="display:none;" onchange="handleAudioFile(this)">
         </div>
         <div class="meeting-status" id="meetingStatus">点击「开始录音」录制会议，或上传 mp3/wav 音频文件</div>
@@ -913,6 +913,7 @@ function processRecording() {
 window.preloadModel = function() {
   document.getElementById('meetingStatus').innerHTML = '⏳ 开始下载模型，请保持页面打开...';
   loadWhisper().then(function() {
+    updateMeetingBtns();
     document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 模型已就绪</span> 可以开始录音或上传音频了';
     toast('模型下载完成');
   }).catch(function(e) {
@@ -1008,9 +1009,20 @@ function loadWhisper() {
   return whisperPromise;
 }
 
+function modelReady() {
+  try { return localStorage.getItem('whisper_ready') === '1'; } catch(e) { return false; }
+}
+function updateMeetingBtns() {
+  var ready = modelReady();
+  var r = document.getElementById('btnRec');
+  var u = document.getElementById('btnUpload');
+  if (r) { r.disabled = !ready; r.style.opacity = ready ? '1' : '0.5'; }
+  if (u) { u.disabled = !ready; u.style.opacity = ready ? '1' : '0.5'; }
+}
+
 function loadMeetings() {
-  var isReady = false;
-  try { isReady = localStorage.getItem('whisper_ready') === '1'; } catch(e) {}
+  updateMeetingBtns();
+  var isReady = modelReady();
   if (!isReady) {
     document.getElementById('meetingStatus').innerHTML =
       '<span style="color:var(--amber);font-weight:600;">首次使用需下载语音模型（约 80MB）</span><br>' +
