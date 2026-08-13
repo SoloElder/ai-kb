@@ -962,8 +962,8 @@ function loadWhisper() {
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
-    env.remoteHost = 'https://soloelder.github.io';
-    env.remotePathTemplate = 'ai-kb/models/{model}';
+    env.remoteHost = 'https://smmcayeiecgbbgklpibh.supabase.co';
+    env.remotePathTemplate = 'storage/v1/object/public/models/{model}';
     var lastPct = 0, tickTimer = null, lastEvent = Date.now(), watchdog = null;
     function fmtMB(b) { return b == null ? '' : (b / 1048576).toFixed(1) + 'MB'; }
     function render(msg, pct, indeterminate) {
@@ -1002,7 +1002,7 @@ function loadWhisper() {
         else if (status === 'ready') { stopTimers(); render('模型加载完成，正在转写...', 100, false); }
       }
     };
-    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-base', opts).then(function(t) {
+    return m.pipeline('automatic-speech-recognition', 'Xenova/whisper-tiny', opts).then(function(t) {
       try { localStorage.setItem('whisper_ready', '1'); } catch(e) {}
       return t;
     });
