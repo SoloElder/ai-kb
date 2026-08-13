@@ -951,7 +951,8 @@ function loadWhisper() {
     });
   }
   whisperPromise = tryLoad(0).then(function() {
-    var m = window.Transformers;
+    var m = window.Transformers || window.TransformerJS;
+    if (!m) throw new Error('模型库加载异常');
     var env = m.env;
     env.allowLocalModels = false;
     env.useBrowserCache = true;
