@@ -854,6 +854,7 @@ var currentMeetingId = null;
 var speechRec = null, liveTranscript = '', isRecording = false, recTimer = null, recSeconds = 0;
 var speakerIdx = 1, lastSpeechTime = 0, restartTimer = null, silentCtx = null;
 var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null, speakerProfiles = [];
+var pendingInterim = '', lastInterimTime = 0, interimTimer = null;
 
 function medianPitch(arr) {
   if (!arr || arr.length === 0) return 0;
@@ -955,13 +956,26 @@ window.toggleRecording = function() {
   recSeconds = 0;
   speakerIdx = 1;
   lastSpeechTime = Date.now();
+  pendingInterim = '';
+  lastInterimTime = 0;
+  interimTimer = setInterval(function() {
+    if (!isRecording) return;
+    if (pendingInterim && Date.now() - lastInterimTime > 3000) {
+      if (liveTranscript !== '') liveTranscript += '\n';
+      liveTranscript += speakerLabel() + ' （模糊）' + pendingInterim;
+      pendingInterim = '';
+      renderLive('');
+    }
+  }, 1000);
   speechRec.onresult = function(e) {
     var finalText = '', interim = '';
     for (var i = e.resultIndex; i < e.results.length; i++) {
       if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
       else interim += e.results[i][0].transcript;
     }
+    if (interim) { pendingInterim = interim; lastInterimTime = Date.now(); }
     if (finalText) {
+      pendingInterim = '';
       var segPitch = medianPitch(pitchSamples);
       pitchSamples = [];
       if (segPitch > 0) {
@@ -1041,6 +1055,12 @@ function stopRecording() {
   isRecording = false;
   if (recTimer) { clearInterval(recTimer); recTimer = null; }
   if (restartTimer) { clearInterval(restartTimer); restartTimer = null; }
+  if (interimTimer) { clearInterval(interimTimer); interimTimer = null; }
+  if (pendingInterim) {
+    if (liveTranscript !== '') liveTranscript += '\n';
+    liveTranscript += speakerLabel() + ' （模糊）' + pendingInterim;
+    pendingInterim = '';
+  }
   stopSilentAudio();
   stopPitchTracking();
   var btn = document.getElementById('btnRec');
