@@ -856,38 +856,25 @@ var pitchCtx = null, pitchAnalyser = null, pitchSamples = [], pitchTimer = null,
 var pendingInterim = '', lastInterimTime = 0, interimTimer = null;
 var audioRecorder = null, audioChunks = [];
 var pendingDownload = null;
+var lastMeeting = null;
 
 function saveMeeting(title, transcript) {
   var mid = 'mt_' + Date.now();
   api('POST', '/rest/v1/meetings', { id: mid, user_id: session.user.id, title: title, transcript: transcript, analysis: '', created_at: new Date().toISOString() }).then(function(rr) {
     if (!rr.ok) { document.getElementById('meetingStatus').textContent = '保存失败: ' + JSON.stringify(rr.data); return; }
     document.getElementById('meetingTitle').value = '';
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存，正在自动 AI 分析...</span>';
+    lastMeeting = { id: mid, title: title, transcript: transcript };
     loadMeetings();
-    autoAnalyze(mid, title, transcript);
-  });
-}
-
-function autoAnalyze(mid, title, transcript) {
-  var cfg = getCurrentConfig();
-  if (!cfg.endpoint || !cfg.api_key) {
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存</span>（未配置 AI 模型，无法自动分析。可在知识库问答顶部配置模型后，点会议记录里的「AI 分析」）';
-    return;
-  }
-  var model = document.getElementById('chatModelSelect').value;
-  var prompt = '以下是会议转写内容，请分析并输出：\n【参会人员】从对话内容推断有几个人发言及各自观点倾向（若无法判断就写无法识别）\n【讨论议题】会议主要讨论了什么\n【关键结论】达成的共识或决定\n【待办事项】需要跟进的事项\n\n会议主题：' + title + '\n会议内容：\n' + transcript;
-  fetch(cfg.endpoint.replace(/\/+$/,'')+'/chat/completions', {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+cfg.api_key },
-    body: JSON.stringify({ model: model, messages: [{ role: 'user', content: prompt }], stream: false })
-  }).then(function(res) { return res.json(); }).then(function(d) {
-    var analysis = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : JSON.stringify(d);
-    api('PATCH', '/rest/v1/meetings?id=eq.' + encodeURIComponent(mid), { analysis: analysis }).then(function() {
-      document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存并分析完成</span>';
-      loadMeetings();
-      showAnalysisInline(title, transcript, analysis);
+    var cfg = getCurrentConfig();
+    if (!cfg.endpoint || !cfg.api_key) { showDownloadLink(); return; }
+    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存，正在自动 AI 分析...</span>';
+    runAnalysis(mid, title, transcript, function(success, analysis) {
+      if (success) {
+        showAnalysisInline(title, transcript, analysis);
+      } else {
+        showDownloadLink();
+      }
     });
-  }).catch(function(e) {
-    document.getElementById('meetingStatus').innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存</span>（自动分析失败: ' + esc(e.message) + '，可点会议记录手动分析）';
   });
 }
 
@@ -1157,9 +1144,42 @@ function downloadAudio(fname, type) {
 function showDownloadLink() {
   var st = document.getElementById('meetingStatus');
   if (st && pendingDownload) {
+    var aiBtn = lastMeeting
+      ? '<br><br><button class="btn-sm primary" style="padding:8px 20px;font-size:13px;" onclick="analyzeLastMeeting()">🤖 AI 分析本次会议</button>'
+      : '';
     st.innerHTML = '<span style="color:var(--green);font-weight:600;">✅ 已保存，录音文件已开始下载</span>（' + pendingDownload.name + '）<br>' +
-      '<a href="' + pendingDownload.url + '" download="' + pendingDownload.name + '" style="color:var(--accent);">如未自动下载，点击此处手动下载</a>';
+      '<a href="' + pendingDownload.url + '" download="' + pendingDownload.name + '" style="color:var(--accent);">如未自动下载，点击此处手动下载</a>' + aiBtn;
   }
+}
+
+window.analyzeLastMeeting = function() {
+  if (!lastMeeting) { toast('没有可分析的会议记录'); return; }
+  var st = document.getElementById('meetingStatus');
+  if (st) st.innerHTML = '⏳ AI 分析中，请稍候...';
+  runAnalysis(lastMeeting.id, lastMeeting.title, lastMeeting.transcript, function(success, analysis) {
+    if (success) {
+      showAnalysisInline(lastMeeting.title, lastMeeting.transcript, analysis);
+    } else {
+      if (st) st.innerHTML = '<span style="color:var(--red);">分析失败</span><br>' + esc(analysis || '') + '<br><button class="btn-sm primary" onclick="analyzeLastMeeting()">重试</button>';
+    }
+  });
+};
+
+function runAnalysis(mid, title, transcript, cb) {
+  var cfg = getCurrentConfig();
+  if (!cfg.endpoint || !cfg.api_key) { cb(false, '未配置 AI 模型，请在知识库问答顶部配置'); return; }
+  var model = document.getElementById('chatModelSelect').value;
+  var prompt = '以下是会议转写内容，请分析并输出：\n【参会人员】从对话内容推断有几个人发言及各自观点倾向（若无法判断就写无法识别）\n【讨论议题】会议主要讨论了什么\n【关键结论】达成的共识或决定\n【待办事项】需要跟进的事项\n\n会议主题：' + title + '\n会议内容：\n' + transcript;
+  fetch(cfg.endpoint.replace(/\/+$/,'')+'/chat/completions', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer '+cfg.api_key },
+    body: JSON.stringify({ model: model, messages: [{ role: 'user', content: prompt }], stream: false })
+  }).then(function(res) { return res.json(); }).then(function(d) {
+    var analysis = d.choices && d.choices[0] && d.choices[0].message ? d.choices[0].message.content : JSON.stringify(d);
+    api('PATCH', '/rest/v1/meetings?id=eq.' + encodeURIComponent(mid), { analysis: analysis }).then(function() {
+      loadMeetings();
+      cb(true, analysis);
+    });
+  }).catch(function(e) { cb(false, e.message); });
 }
 
 document.addEventListener('visibilitychange', function() {
